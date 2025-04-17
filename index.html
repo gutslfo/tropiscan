@@ -3,83 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tropitech - Scanner de Billets</title>
+    <title>Scanner de Billets Tropitech</title>
+    <!-- Bibliothèque pour QR code -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #000;
-            color: #fff;
+            background-color: #121212;
+            color: white;
         }
         .container {
-            max-width: 800px;
+            max-width: 600px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 15px;
         }
         header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
         h1 {
             color: #9333ea;
+            margin: 0;
+            padding: 10px 0;
         }
-        .scanner-container {
-            position: relative;
+        #reader {
             width: 100%;
-            max-width: 500px;
-            margin: 0 auto;
+            background: #1a1a1a;
+            border-radius: 10px;
             overflow: hidden;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        }
-        #scanner {
-            width: 100%;
-            background-color: #222;
-            position: relative;
-        }
-        #video {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-        .scan-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            border: 2px solid #9333ea;
-            border-radius: 10px;
-            pointer-events: none;
-        }
-        .controls {
-            display: flex;
-            justify-content: center;
-            margin: 20px 0;
-        }
-        button {
-            background-color: #9333ea;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            margin: 0 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #7e22ce;
-        }
-        button:disabled {
-            background-color: #666;
-            cursor: not-allowed;
         }
         .result {
-            margin-top: 30px;
-            padding: 20px;
-            border-radius: 10px;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
             text-align: center;
             display: none;
         }
@@ -92,106 +50,81 @@
             border: 1px solid #dc2626;
         }
         .ticket-info {
-            display: flex;
-            flex-direction: column;
             margin-top: 15px;
             padding: 15px;
             background-color: rgba(255, 255, 255, 0.1);
             border-radius: 8px;
+            text-align: left;
         }
-        .ticket-info span {
+        .ticket-info p {
             margin: 5px 0;
         }
-        #login-form {
-            max-width: 400px;
-            margin: 50px auto;
-            padding: 20px;
-            background-color: #111;
-            border-radius: 10px;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
+        button {
+            background-color: #9333ea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px auto;
             display: block;
-            margin-bottom: 5px;
-            color: #9333ea;
+            width: 100%;
+            max-width: 300px;
+        }
+        #manual-entry {
+            margin-top: 20px;
+            text-align: center;
         }
         input {
-            width: 100%;
             padding: 10px;
-            background-color: #222;
-            border: 1px solid #444;
-            border-radius: 5px;
-            color: #fff;
-        }
-        .login-btn {
             width: 100%;
-            margin-top: 10px;
-        }
-        #app-container {
-            display: none;
-        }
-        #fullname {
-            font-size: 24px;
-            font-weight: bold;
-        }
-        #category {
-            font-style: italic;
-            color: #9333ea;
+            max-width: 300px;
+            margin: 0 auto 10px auto;
+            border-radius: 5px;
+            border: none;
+            background-color: #333;
+            color: white;
         }
         .counter {
             text-align: center;
             margin: 20px 0;
             font-size: 18px;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 5px;
         }
         #scan-count {
             font-weight: bold;
             color: #9333ea;
         }
-        #manual-entry {
-            margin-top: 30px;
-            text-align: center;
-            padding: 15px;
-            background-color: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
+        #log-container {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            color: #aaa;
         }
-        #manual-id {
-            width: 60%;
-            margin-right: 10px;
+        #export-btn {
+            background-color: #16a34a;
         }
-        .loading-spinner {
-            display: none;
-            margin: 0 auto;
-            width: 50px;
-            height: 50px;
-            border: 5px solid rgba(255, 255, 255, 0.2);
-            border-top-color: #9333ea;
-            border-radius: 50%;
-            animation: spin 1s ease-in-out infinite;
+        .original-data {
+            margin-top: 10px;
+            color: #999;
+            font-size: 0.8em;
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        /* Animation */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
-        .mode-switch {
-            display: flex;
-            justify-content: center;
-            margin: 20px 0;
-        }
-        .status-tag {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 14px;
-            margin-left: 10px;
-        }
-        .status-scanned {
-            background-color: #fb7185;
-            color: white;
-        }
-        .status-valid {
-            background-color: #22c55e;
-            color: white;
+        .pulse {
+            animation: pulse 0.5s;
         }
     </style>
 </head>
@@ -200,76 +133,38 @@
         <header>
             <h1>Tropitech - Scanner de Billets</h1>
         </header>
-
-        <form id="login-form">
-            <div class="form-group">
-                <label for="mongodb-uri">URI de connexion MongoDB Atlas</label>
-                <input type="text" id="mongodb-uri" placeholder="mongodb+srv://username:password@cluster.mongodb.net/database" required>
-            </div>
-            <button type="submit" class="login-btn">Se connecter</button>
-        </form>
-
-        <div id="app-container">
-            <div class="mode-switch">
-                <button id="camera-mode" class="active">Mode Caméra</button>
-                <button id="manual-mode">Mode Manuel</button>
-            </div>
-
-            <div id="camera-container">
-                <div class="scanner-container">
-                    <div id="scanner">
-                        <video id="video" playsinline></video>
-                        <div class="scan-overlay"></div>
-                    </div>
-                </div>
-
-                <div class="controls">
-                    <button id="start-btn">Démarrer la caméra</button>
-                    <button id="stop-btn" disabled>Arrêter</button>
-                </div>
-            </div>
-
-            <div id="manual-entry" style="display: none;">
-                <h3>Saisie manuelle du code</h3>
-                <input type="text" id="manual-id" placeholder="Entrez l'ID du billet (paymentId)">
-                <button id="verify-manual">Vérifier</button>
-            </div>
-
-            <div class="counter">
-                Billets scannés: <span id="scan-count">0</span>
-            </div>
-
-            <div class="loading-spinner" id="loading"></div>
-
-            <div class="result" id="result">
-                <h2 id="result-title">Résultat du scan</h2>
-                <p id="result-message"></p>
-                <div class="ticket-info">
-                    <span id="fullname"></span>
-                    <span id="email"></span>
-                    <span id="category"></span>
-                    <span id="payment-id"></span>
-                </div>
-            </div>
+        
+        <div id="reader"></div>
+        
+        <div id="manual-entry">
+            <h3>Saisie manuelle</h3>
+            <input type="text" id="manual-id" placeholder="ID du billet (ex: pi_...)">
+            <button id="verify-manual">Vérifier</button>
         </div>
+        
+        <div class="counter">
+            Billets scannés: <span id="scan-count">0</span>
+            <button id="export-btn" style="margin-top: 10px;">Exporter les données</button>
+        </div>
+        
+        <div class="result" id="result">
+            <h2 id="result-title">Résultat du scan</h2>
+            <p id="result-message"></p>
+            <div class="ticket-info">
+                <p id="fullname"></p>
+                <p id="email"></p>
+                <p id="category"></p>
+                <p id="payment-id"></p>
+                <div id="original-data" class="original-data"></div>
+            </div>
+            <button id="reset-button">Scanner un autre billet</button>
+        </div>
+        
+        <div id="log-container"></div>
     </div>
 
-    <script src="https://unpkg.com/@zxing/library@latest"></script>
-    <script src="https://unpkg.com/realm-web@latest"></script>
     <script>
-        // Variables globales
-        let codeReader;
-        let selectedDeviceId;
-        let app;
-        let user;
-        let scanCount = 0;
-        let db;
-        
-        // Éléments DOM
-        const loginForm = document.getElementById('login-form');
-        const appContainer = document.getElementById('app-container');
-        const startButton = document.getElementById('start-btn');
-        const stopButton = document.getElementById('stop-btn');
+        // Éléments du DOM
         const resultDiv = document.getElementById('result');
         const resultTitle = document.getElementById('result-title');
         const resultMessage = document.getElementById('result-message');
@@ -278,260 +173,325 @@
         const categoryElement = document.getElementById('category');
         const paymentIdElement = document.getElementById('payment-id');
         const scanCountElement = document.getElementById('scan-count');
-        const loadingElement = document.getElementById('loading');
-        const cameraModeBtn = document.getElementById('camera-mode');
-        const manualModeBtn = document.getElementById('manual-mode');
-        const cameraContainer = document.getElementById('camera-container');
-        const manualEntry = document.getElementById('manual-entry');
+        const resetButton = document.getElementById('reset-button');
         const manualIdInput = document.getElementById('manual-id');
         const verifyManualBtn = document.getElementById('verify-manual');
+        const exportBtn = document.getElementById('export-btn');
+        const logContainer = document.getElementById('log-container');
+        const originalDataDiv = document.getElementById('original-data');
 
-        // Initialisation
-        document.addEventListener('DOMContentLoaded', function() {
-            codeReader = new ZXing.BrowserMultiFormatReader();
+        // Variables globales
+        let html5QrCode;
+        let scanCount = parseInt(localStorage.getItem('scan_count') || '0');
+        updateScanCount();
+
+        // Fonction pour extraire l'ID du ticket d'une URL ou d'un texte
+        function extractTicketId(text) {
+            // Logguer le texte original
+            log(`Texte scanné: ${text}`);
             
-            // Gestionnaire pour le formulaire de connexion
-            loginForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                const mongoUri = document.getElementById('mongodb-uri').value;
-                
-                try {
-                    loadingElement.style.display = 'block';
-                    
-                    // Connexion à MongoDB Realm/Atlas
-                    // Note: Dans une application réelle, vous devriez utiliser une API sécurisée
-                    // plutôt que de vous connecter directement à MongoDB depuis le client
-                    
-                    // Utilisation simulée - dans une application réelle,
-                    // vous feriez la validation via une API
-                    
-                    if (mongoUri.startsWith('mongodb+srv://')) {
-                        // Dans cet exemple simplifié, nous stockons juste l'URI
-                        localStorage.setItem('mongo_uri', mongoUri);
-                        
-                        // Dans une application réelle, cette vérification devrait se faire côté serveur
-                        loginForm.style.display = 'none';
-                        appContainer.style.display = 'block';
-                        
-                        // Initialiser le scanner
-                        initScanner();
-                        
-                        // Simuler la connexion réussie
-                        scanCount = parseInt(localStorage.getItem('scan_count') || '0');
-                        updateScanCount();
-                    } else {
-                        alert('URI MongoDB Atlas invalide. Elle doit commencer par mongodb+srv://');
-                    }
-                } catch (error) {
-                    console.error('Erreur de connexion:', error);
-                    alert('Erreur de connexion: ' + error.message);
-                } finally {
-                    loadingElement.style.display = 'none';
+            let ticketId = text;
+            
+            // Si c'est une URL
+            if (text.includes('/ticket/')) {
+                const parts = text.split('/ticket/');
+                if (parts.length > 1) {
+                    ticketId = parts[1];
+                    log(`ID extrait de l'URL: ${ticketId}`);
                 }
-            });
-            
-            // Événements pour les boutons de contrôle de la caméra
-            startButton.addEventListener('click', startScanner);
-            stopButton.addEventListener('click', stopScanner);
-            
-            // Événements pour les modes caméra/manuel
-            cameraModeBtn.addEventListener('click', () => {
-                cameraContainer.style.display = 'block';
-                manualEntry.style.display = 'none';
-                cameraModeBtn.classList.add('active');
-                manualModeBtn.classList.remove('active');
-            });
-            
-            manualModeBtn.addEventListener('click', () => {
-                cameraContainer.style.display = 'none';
-                manualEntry.style.display = 'block';
-                cameraModeBtn.classList.remove('active');
-                manualModeBtn.classList.add('active');
-            });
-            
-            // Événement pour la vérification manuelle
-            verifyManualBtn.addEventListener('click', () => {
-                const paymentId = manualIdInput.value.trim();
-                if (paymentId) {
-                    verifyTicket(paymentId);
-                    manualIdInput.value = '';
-                } else {
-                    alert("Veuillez entrer un ID de billet valide");
-                }
-            });
-            
-            // Vérifier si déjà connecté
-            const storedUri = localStorage.getItem('mongo_uri');
-            if (storedUri) {
-                document.getElementById('mongodb-uri').value = storedUri;
             }
-        });
+            
+            // Nettoyer l'ID (supprimer espaces, etc.)
+            ticketId = ticketId.trim();
+            
+            // Si l'ID commence par "pi_", c'est probablement valide
+            if (ticketId.startsWith('pi_')) {
+                log(`ID valide trouvé: ${ticketId}`);
+                return ticketId;
+            }
+            
+            // Chercher un pattern "pi_" suivi de caractères
+            const match = text.match(/pi_[a-zA-Z0-9]+/);
+            if (match) {
+                ticketId = match[0];
+                log(`ID trouvé avec regex: ${ticketId}`);
+                return ticketId;
+            }
+            
+            // Retourner ce qu'on a trouvé, même si pas idéal
+            log(`Pas d'ID Stripe clairement identifié, utilisation de: ${ticketId}`);
+            return ticketId;
+        }
 
         // Initialisation du scanner
         function initScanner() {
-            codeReader.getVideoInputDevices()
-                .then((videoInputDevices) => {
-                    if (videoInputDevices.length > 0) {
-                        // Par défaut, utiliser la caméra arrière si disponible
-                        selectedDeviceId = videoInputDevices.find(device => 
-                            device.label.toLowerCase().includes('back') || 
-                            device.label.toLowerCase().includes('arrière')
-                        )?.deviceId || videoInputDevices[0].deviceId;
-                        
-                        startButton.disabled = false;
-                    } else {
-                        alert("Aucune caméra détectée. Utilisez le mode manuel.");
-                        manualModeBtn.click();
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert("Erreur d'accès à la caméra: " + err);
-                });
-        }
-
-        // Démarrer le scanner
-        function startScanner() {
-            const videoElement = document.getElementById('video');
+            log("Initialisation du scanner...");
+            html5QrCode = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
             
-            startButton.disabled = true;
-            stopButton.disabled = false;
-            
-            codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, err) => {
-                if (result) {
-                    // Le QR code a été scanné avec succès
-                    const paymentId = result.getText();
-                    verifyTicket(paymentId);
-                    
-                    // Pause courte avant de reprendre le scan
-                    setTimeout(() => {
-                        startScanner();
-                    }, 3000);
-                }
-                
-                if (err && !(err instanceof ZXing.NotFoundException)) {
-                    console.error(err);
-                }
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                config, 
+                onScanSuccess, 
+                onScanFailure
+            ).catch(err => {
+                console.error("Error starting scanner:", err);
+                log(`Erreur caméra: ${err}`);
+                alert("Erreur d'accès à la caméra. Utilisez la saisie manuelle.");
             });
         }
 
-        // Arrêter le scanner
-        function stopScanner() {
-            codeReader.reset();
-            startButton.disabled = false;
-            stopButton.disabled = true;
+        // Succès du scan
+        function onScanSuccess(decodedText, decodedResult) {
+            // Arrêter le scanner temporairement
+            html5QrCode.pause();
+            log(`QR code scanné avec succès!`);
+            
+            // Extraire et traiter l'ID du billet
+            const ticketId = extractTicketId(decodedText);
+            verifyTicket(ticketId, decodedText);
+        }
+
+        // Échec du scan
+        function onScanFailure(error) {
+            // Ignorer les erreurs de scan standard (pas de QR code détecté)
         }
 
         // Vérifier le billet
-        async function verifyTicket(paymentId) {
-            try {
-                loadingElement.style.display = 'block';
-                resultDiv.style.display = 'none';
+        function verifyTicket(paymentId, originalText = null) {
+            log(`Vérification du billet: ${paymentId}`);
+            
+            // Récupérer les billets déjà scannés
+            const ticketsStr = localStorage.getItem('scanned_tickets') || '{}';
+            const tickets = JSON.parse(ticketsStr);
+            
+            // Vérifier si le billet est déjà scanné
+            if (tickets[paymentId]) {
+                // Billet déjà scanné
+                log(`Billet déjà scanné: ${paymentId}`);
+                showResult(false, {
+                    message: 'Ce billet a déjà été scanné!',
+                    details: {
+                        paymentId: paymentId,
+                        name: tickets[paymentId].name,
+                        firstName: tickets[paymentId].firstName,
+                        email: tickets[paymentId].email,
+                        category: tickets[paymentId].category,
+                        scannedAt: new Date(tickets[paymentId].scannedAt).toLocaleString()
+                    },
+                    originalText: originalText
+                });
+            } else if (knownTickets[paymentId]) {
+                // Billet valide et non scanné
+                const ticket = {...knownTickets[paymentId]};
+                log(`Billet valide trouvé: ${paymentId}`);
                 
-                // Simuler l'appel à l'API pour vérifier le billet
-                const response = await simulateApiCall(paymentId);
+                // Marquer comme scanné
+                ticket.scannedAt = new Date().toISOString();
+                tickets[paymentId] = ticket;
+                localStorage.setItem('scanned_tickets', JSON.stringify(tickets));
                 
-                loadingElement.style.display = 'none';
+                // Incrémenter le compteur
+                scanCount++;
+                localStorage.setItem('scan_count', scanCount.toString());
+                updateScanCount();
                 
-                if (response.success) {
-                    // Billet valide
-                    resultDiv.className = 'result ' + (response.alreadyScanned ? 'error' : 'success');
-                    resultTitle.textContent = response.alreadyScanned ? 'Billet déjà scanné!' : 'Billet valide!';
-                    resultMessage.textContent = response.alreadyScanned 
-                        ? 'Ce billet a déjà été scanné le ' + new Date(response.scannedAt).toLocaleString() 
-                        : 'Accès autorisé';
-                    
-                    fullnameElement.textContent = `${response.ticket.firstName} ${response.ticket.name}`;
-                    emailElement.textContent = response.ticket.email;
-                    
-                    const categories = {
-                        earlyBird: "Early Bird",
-                        secondRelease: "Second Release",
-                        thirdRelease: "Third Release"
+                // Afficher le résultat
+                showResult(true, {
+                    message: 'Billet valide! Accès autorisé.',
+                    details: ticket,
+                    originalText: originalText
+                });
+            } else {
+                // Vérifier si c'est un billet "acceptable"
+                if (paymentId.startsWith('pi_') && !originalText && paymentId.length > 10) {
+                    // C'est probablement un billet valide, l'ajouter à notre base
+                    const newTicket = {
+                        paymentId: paymentId,
+                        name: "Invité",
+                        firstName: "Billet",
+                        email: "billet@tropitech.ch",
+                        category: "dynamique", // catégorie par défaut
+                        createdAt: new Date().toISOString()
                     };
                     
-                    categoryElement.textContent = `Catégorie: ${categories[response.ticket.category] || response.ticket.category}`;
-                    paymentIdElement.textContent = `ID: ${response.ticket.paymentId}`;
+                    // Ajouter aux billets connus
+                    knownTickets[paymentId] = newTicket;
+                    log(`Nouveau billet Stripe ajouté: ${paymentId}`);
                     
-                    if (!response.alreadyScanned) {
-                        scanCount++;
-                        localStorage.setItem('scan_count', scanCount.toString());
-                        updateScanCount();
-                    }
+                    // Marquer comme scanné
+                    newTicket.scannedAt = new Date().toISOString();
+                    tickets[paymentId] = newTicket;
+                    localStorage.setItem('scanned_tickets', JSON.stringify(tickets));
+                    
+                    // Incrémenter le compteur
+                    scanCount++;
+                    localStorage.setItem('scan_count', scanCount.toString());
+                    updateScanCount();
+                    
+                    // Afficher le résultat
+                    showResult(true, {
+                        message: 'Billet reconnu par format! Accès autorisé.',
+                        details: newTicket,
+                        originalText: originalText
+                    });
                 } else {
-                    // Billet non trouvé ou invalide
-                    resultDiv.className = 'result error';
-                    resultTitle.textContent = 'Billet invalide!';
-                    resultMessage.textContent = response.message || 'Ce billet n\'existe pas ou n\'est pas valide.';
-                    
-                    fullnameElement.textContent = '';
-                    emailElement.textContent = '';
-                    categoryElement.textContent = '';
-                    paymentIdElement.textContent = `ID vérifié: ${paymentId}`;
+                    // Billet vraiment inconnu
+                    log(`Billet inconnu: ${paymentId}`);
+                    showResult(false, {
+                        message: 'Billet inconnu ou invalide!',
+                        details: {
+                            paymentId: paymentId
+                        },
+                        originalText: originalText
+                    });
                 }
-                
-                resultDiv.style.display = 'block';
-                
-            } catch (error) {
-                loadingElement.style.display = 'none';
-                console.error('Erreur lors de la vérification:', error);
-                
-                resultDiv.className = 'result error';
-                resultTitle.textContent = 'Erreur!';
-                resultMessage.textContent = 'Une erreur est survenue lors de la vérification du billet.';
-                resultDiv.style.display = 'block';
             }
         }
 
-        // Mise à jour du compteur de scan
+        // Afficher le résultat du scan
+        function showResult(isValid, data) {
+            resultDiv.className = 'result ' + (isValid ? 'success' : 'error');
+            resultDiv.classList.add('pulse');
+            setTimeout(() => resultDiv.classList.remove('pulse'), 500);
+            
+            resultTitle.textContent = isValid ? 'Billet valide!' : 'Billet invalide!';
+            resultMessage.textContent = data.message;
+            
+            if (data.details) {
+                fullnameElement.textContent = data.details.firstName && data.details.name ? 
+                    `Nom: ${data.details.firstName} ${data.details.name}` : '';
+                
+                emailElement.textContent = data.details.email ? 
+                    `Email: ${data.details.email}` : '';
+                
+                const categories = {
+                    earlyBird: "Early Bird",
+                    secondRelease: "Second Release",
+                    thirdRelease: "Third Release",
+                    dynamique: "Billet Valide"
+                };
+                
+                categoryElement.textContent = data.details.category ? 
+                    `Catégorie: ${categories[data.details.category] || data.details.category}` : '';
+                
+                paymentIdElement.textContent = data.details.paymentId ? 
+                    `ID: ${data.details.paymentId}` : '';
+                
+                if (data.details.scannedAt && !isValid) {
+                    paymentIdElement.textContent += ` (Scanné le: ${data.details.scannedAt})`;
+                }
+                
+                // Afficher les données originales si disponibles
+                if (data.originalText) {
+                    originalDataDiv.textContent = `Données brutes: ${data.originalText}`;
+                    originalDataDiv.style.display = 'block';
+                } else {
+                    originalDataDiv.style.display = 'none';
+                }
+            }
+            
+            resultDiv.style.display = 'block';
+        }
+
+        // Réinitialiser le scanner
+        function resetScanner() {
+            resultDiv.style.display = 'none';
+            
+            if (html5QrCode) {
+                html5QrCode.resume();
+            }
+        }
+        
+        // Mettre à jour le compteur
         function updateScanCount() {
             scanCountElement.textContent = scanCount.toString();
         }
-
-        // Dans une application réelle, cette fonction serait remplacée par un appel API à votre backend
-        async function simulateApiCall(paymentId) {
-            return new Promise(resolve => {
-                // Simuler un délai de réseau
-                setTimeout(() => {
-                    // Vérifier si on a des infos sur ce billet dans le localStorage
-                    const ticketsStr = localStorage.getItem('scanned_tickets') || '{}';
-                    const tickets = JSON.parse(ticketsStr);
-                    
-                    if (tickets[paymentId]) {
-                        // Billet déjà scanné
-                        resolve({
-                            success: true,
-                            alreadyScanned: true,
-                            scannedAt: tickets[paymentId].scannedAt,
-                            ticket: tickets[paymentId]
-                        });
-                    } else if (knownTickets[paymentId]) {
-                        // Billet connu et non scanné
-                        const ticket = {...knownTickets[paymentId]};
-                        
-                        // Enregistrer ce billet comme scanné
-                        ticket.scannedAt = new Date().toISOString();
-                        tickets[paymentId] = ticket;
-                        localStorage.setItem('scanned_tickets', JSON.stringify(tickets));
-                        
-                        resolve({
-                            success: true,
-                            alreadyScanned: false,
-                            ticket: ticket
-                        });
-                    } else {
-                        // Billet inconnu
-                        resolve({
-                            success: false,
-                            message: 'Billet non trouvé dans la base de données'
-                        });
-                    }
-                }, 500); // Délai simulé de 500ms
-            });
+        
+        // Logger les messages
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            
+            // Auto-scroll vers le bas
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            // Limiter le nombre d'entrées
+            while (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.firstChild);
+            }
+        }
+        
+        // Exporter les données
+        function exportData() {
+            try {
+                const scannedTickets = JSON.parse(localStorage.getItem('scanned_tickets') || '{}');
+                const count = Object.keys(scannedTickets).length;
+                
+                if (count === 0) {
+                    alert('Aucun billet scanné à exporter.');
+                    return;
+                }
+                
+                // Préparer les données CSV
+                let csv = 'ID,Nom,Prénom,Email,Catégorie,Date de scan\n';
+                
+                Object.values(scannedTickets).forEach(ticket => {
+                    const scanDate = new Date(ticket.scannedAt).toLocaleString();
+                    csv += `${ticket.paymentId},${ticket.name},${ticket.firstName},${ticket.email},${ticket.category},${scanDate}\n`;
+                });
+                
+                // Créer un lien de téléchargement
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `tickets_scannés_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                log(`Données exportées: ${count} billets`);
+            } catch (error) {
+                console.error('Erreur d\'exportation:', error);
+                log(`Erreur d'exportation: ${error.message}`);
+                alert('Erreur lors de l\'exportation des données.');
+            }
         }
 
-        // Base de données simulée de billets connus
-        // Dans une application réelle, ces données viendraient de votre base de données MongoDB
+        // Gestionnaires d'événements
+        document.addEventListener('DOMContentLoaded', () => {
+            log("Application de scan démarrée");
+            initScanner();
+        });
+        
+        resetButton.addEventListener('click', resetScanner);
+        
+        verifyManualBtn.addEventListener('click', () => {
+            const input = manualIdInput.value.trim();
+            if (input) {
+                const paymentId = extractTicketId(input);
+                verifyTicket(paymentId);
+                manualIdInput.value = '';
+            } else {
+                alert("Veuillez entrer un ID de billet valide");
+            }
+        });
+        
+        exportBtn.addEventListener('click', exportData);
+
+        // Permettre de soumettre le formulaire avec Entrée
+        manualIdInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                verifyManualBtn.click();
+            }
+        });
+
+        // Base de données simulée - billets connus
+        // Ces billets seront reconnus automatiquement
         const knownTickets = {
             'pi_1NxYtQCYswbprtC1rbVKorhT': {
                 paymentId: 'pi_1NxYtQCYswbprtC1rbVKorhT',
@@ -539,7 +499,6 @@
                 firstName: 'Jean',
                 email: 'jean.dupont@example.com',
                 category: 'earlyBird',
-                imageConsent: true,
                 createdAt: '2023-11-20T10:30:00Z'
             },
             'pi_1NxYuRCYswbprtC1aV9XpL8U': {
@@ -548,7 +507,6 @@
                 firstName: 'Sophie',
                 email: 'sophie.martin@example.com',
                 category: 'secondRelease',
-                imageConsent: true,
                 createdAt: '2023-11-21T14:15:00Z'
             },
             'pi_1NxYvSCYswbprtC1bTtRmPqV': {
@@ -557,10 +515,60 @@
                 firstName: 'Marie',
                 email: 'marie.bernard@example.com',
                 category: 'thirdRelease',
-                imageConsent: false,
                 createdAt: '2023-11-22T09:45:00Z'
             },
-            // Vous pouvez ajouter d'autres tickets pour tester
+            'pi_827648262': {
+                paymentId: 'pi_827648262',
+                name: 'Exemple',
+                firstName: 'Client',
+                email: 'client@example.com',
+                category: 'earlyBird',
+                createdAt: '2023-11-23T11:30:00Z'
+            },
+            // Vous pouvez ajouter d'autres billets ici
+        };
+        
+        // Charger les billets connus à partir du localStorage s'ils existent
+        const savedTickets = localStorage.getItem('known_tickets');
+        if (savedTickets) {
+            try {
+                const parsed = JSON.parse(savedTickets);
+                Object.assign(knownTickets, parsed);
+                log(`${Object.keys(parsed).length} billets chargés du stockage local`);
+            } catch (e) {
+                log(`Erreur lors du chargement des billets sauvegardés: ${e.message}`);
+            }
+        }
+        
+        // Fonction pour ajouter un billet manuellement (à exécuter dans la console)
+        window.addTicket = function(paymentId, name, firstName, email, category) {
+            knownTickets[paymentId] = {
+                paymentId,
+                name,
+                firstName,
+                email,
+                category,
+                createdAt: new Date().toISOString()
+            };
+            
+            // Sauvegarder dans localStorage
+            localStorage.setItem('known_tickets', JSON.stringify(knownTickets));
+            console.log(`Billet ajouté: ${paymentId}`);
+            log(`Billet ajouté manuellement: ${paymentId}`);
+            
+            return true;
+        };
+        
+        // Fonction pour réinitialiser tous les billets scannés
+        window.resetScannedTickets = function() {
+            if (confirm('Êtes-vous sûr de vouloir réinitialiser tous les billets scannés?')) {
+                localStorage.removeItem('scanned_tickets');
+                scanCount = 0;
+                localStorage.setItem('scan_count', '0');
+                updateScanCount();
+                log('Tous les billets scannés ont été réinitialisés');
+                alert('Réinitialisation terminée');
+            }
         };
     </script>
 </body>
