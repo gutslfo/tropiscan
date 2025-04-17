@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scanner Tropitech</title>
-    <!-- Bibliothèque QR Code -->
+    <!-- Bibliothèque QR Code plus récente -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         body {
@@ -27,6 +27,7 @@
             background: #222;
             border-radius: 10px;
             overflow: hidden;
+            margin-bottom: 20px;
         }
         #result {
             margin-top: 20px;
@@ -69,13 +70,41 @@
             font-weight: bold;
             color: #9333ea;
         }
+        .scanner-controls {
+            margin-top: 15px;
+            text-align: center;
+        }
+        .status-message {
+            text-align: center;
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .info {
+            background-color: #1e40af50;
+        }
+        .success {
+            background-color: #15803d50;
+        }
+        .error {
+            background-color: #b91c1c50;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Scanner Tropitech</h1>
         
+        <div id="scanner-status" class="status-message info">Initialisation de la caméra...</div>
+        
         <div id="reader"></div>
+        
+        <div class="scanner-controls">
+            <button id="startButton">Démarrer le scanner</button>
+            <button id="stopButton">Arrêter le scanner</button>
+            <button id="switchCamera">Changer de caméra</button>
+        </div>
         
         <div style="margin-top: 20px;">
             <input type="text" id="manualInput" placeholder="Entrez l'ID du billet ou l'URL">
@@ -96,13 +125,17 @@
 
     <script>
         // Variables globales
-        let scanner;
+        let scanner = null;
+        let currentCamera = 'environment'; // 'environment' pour caméra arrière, 'user' pour caméra frontale
         let scanCount = parseInt(localStorage.getItem('scanCount') || '0');
+        let scannerActive = false;
+
+        // Mettre à jour le compteur
         document.getElementById('count').textContent = scanCount;
         
-        // Base de données simulée des billets
+        // Base de données simulée des billets (pour les tests)
         const tickets = {
-            'pi_827648262': {
+            'pi_3PAkv2LkdIwHu7IX0rLQVoG2': {
                 name: 'Exemple',
                 firstName: 'Client',
                 email: 'client@example.com',
@@ -110,28 +143,123 @@
             }
         };
         
+        // Afficher un message de statut
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('scanner-status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message ${type}`;
+        }
+        
         // Initialisation du scanner
         function initScanner() {
-            scanner = new Html5Qrcode("reader");
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            try {
+                // S'assurer que l'ancien scanner est arrêté
+                if (scanner) {
+                    try {
+                        scanner.stop();
+                    } catch (e) {
+                        console.log("Erreur lors de l'arrêt du scanner précédent:", e);
+                    }
+                }
+                
+                // Créer une nouvelle instance
+                scanner = new Html5Qrcode("reader");
+                
+                showStatus("Scanner initialisé. Prêt à démarrer.", "success");
+                console.log("Scanner initialisé avec succès");
+                
+                // Activer le bouton de démarrage
+                document.getElementById('startButton').disabled = false;
+            } catch (error) {
+                console.error("Erreur d'initialisation:", error);
+                showStatus("Erreur d'initialisation: " + error.message, "error");
+            }
+        }
+        
+        // Démarrer le scanner
+        function startScanner() {
+            if (!scanner) {
+                showStatus("Scanner non initialisé", "error");
+                return;
+            }
+            
+            if (scannerActive) {
+                showStatus("Scanner déjà actif", "info");
+                return;
+            }
+            
+            const config = { 
+                fps: 10, 
+                qrbox: { width: 250, height: 250 },
+                formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ]
+            };
+            
+            showStatus("Démarrage de la caméra...", "info");
             
             scanner.start(
-                { facingMode: "environment" },
+                { facingMode: currentCamera },
                 config,
                 onScanSuccess,
-                (error) => {}
-            ).catch(error => {
-                alert("Erreur d'accès à la caméra: " + error);
+                onScanFailure
+            ).then(() => {
+                scannerActive = true;
+                showStatus("Scanner actif - prêt à lire les codes QR", "success");
+                console.log("Scanner démarré avec succès");
+            }).catch(error => {
+                console.error("Erreur de démarrage du scanner:", error);
+                showStatus("Erreur d'accès à la caméra: " + error.message, "error");
             });
         }
         
-        // Fonction exécutée quand un QR code est scanné
-        function onScanSuccess(decodedText) {
-            scanner.pause();
-            console.log("Texte scanné:", decodedText);
+        // Arrêter le scanner
+        function stopScanner() {
+            if (scanner && scannerActive) {
+                scanner.stop().then(() => {
+                    scannerActive = false;
+                    showStatus("Scanner arrêté", "info");
+                }).catch(error => {
+                    console.error("Erreur lors de l'arrêt du scanner:", error);
+                    showStatus("Erreur lors de l'arrêt du scanner", "error");
+                });
+            }
+        }
+        
+        // Changer de caméra
+        function switchCamera() {
+            const wasActive = scannerActive;
             
-            // Extraction de l'ID du billet
+            if (wasActive) {
+                stopScanner();
+            }
+            
+            // Basculer entre caméra frontale et arrière
+            currentCamera = currentCamera === 'environment' ? 'user' : 'environment';
+            showStatus(`Passage à la caméra ${currentCamera === 'environment' ? 'arrière' : 'frontale'}...`, "info");
+            
+            // Redémarrer le scanner si nécessaire
+            if (wasActive) {
+                setTimeout(startScanner, 500);
+            }
+        }
+        
+        // Fonction exécutée quand un QR code est scanné avec succès
+        function onScanSuccess(decodedText) {
+            console.log("Texte scanné:", decodedText);
+            showStatus("Code QR détecté !", "success");
+            
+            // Mettre en pause le scanner
+            if (scanner && scannerActive) {
+                scanner.pause();
+            }
+            
+            // Vérifier le billet
             verifyTicket(decodedText);
+        }
+        
+        // Fonction appelée en cas d'échec du scan (pour le débogage)
+        function onScanFailure(error) {
+            // Ne pas afficher d'erreur pour chaque frame sans QR code
+            // console.log(`Scan error: ${error}`);
         }
         
         // Fonction pour extraire et vérifier l'ID du billet
@@ -264,39 +392,61 @@
             resultDiv.style.display = 'block';
         }
         
-        // Initialiser le scanner au chargement
-        document.addEventListener('DOMContentLoaded', initScanner);
+        // Ajouter un billet de test manuellement
+        function addTestTicket() {
+            const testId = 'pi_test1234567890';
+            tickets[testId] = {
+                name: 'Test',
+                firstName: 'Utilisateur',
+                email: 'test@tropitech.ch',
+                category: 'earlyBird'
+            };
+            console.log("Billet de test ajouté:", testId);
+            showStatus("Billet de test ajouté: " + testId, "success");
+        }
         
-        // Gérer le bouton de réinitialisation
-        document.getElementById('resetButton').addEventListener('click', () => {
-            document.getElementById('result').style.display = 'none';
-            scanner.resume();
+        // Événements au chargement de la page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialiser le scanner
+            initScanner();
+            
+            // Ajouter un billet de test
+            addTestTicket();
+            
+            // Gestion des boutons
+            document.getElementById('startButton').addEventListener('click', startScanner);
+            document.getElementById('stopButton').addEventListener('click', stopScanner);
+            document.getElementById('switchCamera').addEventListener('click', switchCamera);
+            
+            document.getElementById('resetButton').addEventListener('click', () => {
+                document.getElementById('result').style.display = 'none';
+                if (scanner && scannerActive) {
+                    scanner.resume();
+                }
+            });
+            
+            document.getElementById('verifyButton').addEventListener('click', () => {
+                const input = document.getElementById('manualInput').value.trim();
+                if (input) {
+                    verifyTicket(input);
+                    document.getElementById('manualInput').value = '';
+                }
+            });
+            
+            document.getElementById('manualInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('verifyButton').click();
+                }
+            });
         });
         
-        // Gérer la saisie manuelle
-        document.getElementById('verifyButton').addEventListener('click', () => {
-            const input = document.getElementById('manualInput').value.trim();
-            if (input) {
-                verifyTicket(input);
-                document.getElementById('manualInput').value = '';
-            }
-        });
-        
-        // Permettre d'utiliser la touche Entrée
-        document.getElementById('manualInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                document.getElementById('verifyButton').click();
-            }
-        });
-        
-        // Fonction pour ajouter un billet manuellement (depuis la console)
+        // Fonction globale pour ajouter un billet (accessible depuis la console)
         window.addTicket = function(id, name, firstName, email, category) {
             tickets[id] = { name, firstName, email, category };
             console.log("Billet ajouté:", id);
+            showStatus("Billet ajouté: " + id, "success");
             return true;
         };
-        
-        // Votre billet est déjà ajouté dans la base de données!
     </script>
 </body>
 </html>
