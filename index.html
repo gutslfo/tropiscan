@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tropitech - Scanner de Billets</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: #fff;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: #9333ea;
+        }
+        .scanner-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            overflow: hidden;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        #scanner {
+            width: 100%;
+            background-color: #222;
+            position: relative;
+        }
+        #video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .scan-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 2px solid #9333ea;
+            border-radius: 10px;
+            pointer-events: none;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        button {
+            background-color: #9333ea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            margin: 0 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #7e22ce;
+        }
+        button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+        .success {
+            background-color: rgba(22, 163, 74, 0.2);
+            border: 1px solid #16a34a;
+        }
+        .error {
+            background-color: rgba(220, 38, 38, 0.2);
+            border: 1px solid #dc2626;
+        }
+        .ticket-info {
+            display: flex;
+            flex-direction: column;
+            margin-top: 15px;
+            padding: 15px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+        .ticket-info span {
+            margin: 5px 0;
+        }
+        #login-form {
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #111;
+            border-radius: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #9333ea;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            background-color: #222;
+            border: 1px solid #444;
+            border-radius: 5px;
+            color: #fff;
+        }
+        .login-btn {
+            width: 100%;
+            margin-top: 10px;
+        }
+        #app-container {
+            display: none;
+        }
+        #fullname {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        #category {
+            font-style: italic;
+            color: #9333ea;
+        }
+        .counter {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 18px;
+        }
+        #scan-count {
+            font-weight: bold;
+            color: #9333ea;
+        }
+        #manual-entry {
+            margin-top: 30px;
+            text-align: center;
+            padding: 15px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+        #manual-id {
+            width: 60%;
+            margin-right: 10px;
+        }
+        .loading-spinner {
+            display: none;
+            margin: 0 auto;
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #9333ea;
+            border-radius: 50%;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .mode-switch {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .status-tag {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+        .status-scanned {
+            background-color: #fb7185;
+            color: white;
+        }
+        .status-valid {
+            background-color: #22c55e;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Tropitech - Scanner de Billets</h1>
+        </header>
+
+        <form id="login-form">
+            <div class="form-group">
+                <label for="mongodb-uri">URI de connexion MongoDB Atlas</label>
+                <input type="text" id="mongodb-uri" placeholder="mongodb+srv://username:password@cluster.mongodb.net/database" required>
+            </div>
+            <button type="submit" class="login-btn">Se connecter</button>
+        </form>
+
+        <div id="app-container">
+            <div class="mode-switch">
+                <button id="camera-mode" class="active">Mode Caméra</button>
+                <button id="manual-mode">Mode Manuel</button>
+            </div>
+
+            <div id="camera-container">
+                <div class="scanner-container">
+                    <div id="scanner">
+                        <video id="video" playsinline></video>
+                        <div class="scan-overlay"></div>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <button id="start-btn">Démarrer la caméra</button>
+                    <button id="stop-btn" disabled>Arrêter</button>
+                </div>
+            </div>
+
+            <div id="manual-entry" style="display: none;">
+                <h3>Saisie manuelle du code</h3>
+                <input type="text" id="manual-id" placeholder="Entrez l'ID du billet (paymentId)">
+                <button id="verify-manual">Vérifier</button>
+            </div>
+
+            <div class="counter">
+                Billets scannés: <span id="scan-count">0</span>
+            </div>
+
+            <div class="loading-spinner" id="loading"></div>
+
+            <div class="result" id="result">
+                <h2 id="result-title">Résultat du scan</h2>
+                <p id="result-message"></p>
+                <div class="ticket-info">
+                    <span id="fullname"></span>
+                    <span id="email"></span>
+                    <span id="category"></span>
+                    <span id="payment-id"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/@zxing/library@latest"></script>
+    <script src="https://unpkg.com/realm-web@latest"></script>
+    <script>
+        // Variables globales
+        let codeReader;
+        let selectedDeviceId;
+        let app;
+        let user;
+        let scanCount = 0;
+        let db;
+        
+        // Éléments DOM
+        const loginForm = document.getElementById('login-form');
+        const appContainer = document.getElementById('app-container');
+        const startButton = document.getElementById('start-btn');
+        const stopButton = document.getElementById('stop-btn');
+        const resultDiv = document.getElementById('result');
+        const resultTitle = document.getElementById('result-title');
+        const resultMessage = document.getElementById('result-message');
+        const fullnameElement = document.getElementById('fullname');
+        const emailElement = document.getElementById('email');
+        const categoryElement = document.getElementById('category');
+        const paymentIdElement = document.getElementById('payment-id');
+        const scanCountElement = document.getElementById('scan-count');
+        const loadingElement = document.getElementById('loading');
+        const cameraModeBtn = document.getElementById('camera-mode');
+        const manualModeBtn = document.getElementById('manual-mode');
+        const cameraContainer = document.getElementById('camera-container');
+        const manualEntry = document.getElementById('manual-entry');
+        const manualIdInput = document.getElementById('manual-id');
+        const verifyManualBtn = document.getElementById('verify-manual');
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            codeReader = new ZXing.BrowserMultiFormatReader();
+            
+            // Gestionnaire pour le formulaire de connexion
+            loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const mongoUri = document.getElementById('mongodb-uri').value;
+                
+                try {
+                    loadingElement.style.display = 'block';
+                    
+                    // Connexion à MongoDB Realm/Atlas
+                    // Note: Dans une application réelle, vous devriez utiliser une API sécurisée
+                    // plutôt que de vous connecter directement à MongoDB depuis le client
+                    
+                    // Utilisation simulée - dans une application réelle,
+                    // vous feriez la validation via une API
+                    
+                    if (mongoUri.startsWith('mongodb+srv://')) {
+                        // Dans cet exemple simplifié, nous stockons juste l'URI
+                        localStorage.setItem('mongo_uri', mongoUri);
+                        
+                        // Dans une application réelle, cette vérification devrait se faire côté serveur
+                        loginForm.style.display = 'none';
+                        appContainer.style.display = 'block';
+                        
+                        // Initialiser le scanner
+                        initScanner();
+                        
+                        // Simuler la connexion réussie
+                        scanCount = parseInt(localStorage.getItem('scan_count') || '0');
+                        updateScanCount();
+                    } else {
+                        alert('URI MongoDB Atlas invalide. Elle doit commencer par mongodb+srv://');
+                    }
+                } catch (error) {
+                    console.error('Erreur de connexion:', error);
+                    alert('Erreur de connexion: ' + error.message);
+                } finally {
+                    loadingElement.style.display = 'none';
+                }
+            });
+            
+            // Événements pour les boutons de contrôle de la caméra
+            startButton.addEventListener('click', startScanner);
+            stopButton.addEventListener('click', stopScanner);
+            
+            // Événements pour les modes caméra/manuel
+            cameraModeBtn.addEventListener('click', () => {
+                cameraContainer.style.display = 'block';
+                manualEntry.style.display = 'none';
+                cameraModeBtn.classList.add('active');
+                manualModeBtn.classList.remove('active');
+            });
+            
+            manualModeBtn.addEventListener('click', () => {
+                cameraContainer.style.display = 'none';
+                manualEntry.style.display = 'block';
+                cameraModeBtn.classList.remove('active');
+                manualModeBtn.classList.add('active');
+            });
+            
+            // Événement pour la vérification manuelle
+            verifyManualBtn.addEventListener('click', () => {
+                const paymentId = manualIdInput.value.trim();
+                if (paymentId) {
+                    verifyTicket(paymentId);
+                    manualIdInput.value = '';
+                } else {
+                    alert("Veuillez entrer un ID de billet valide");
+                }
+            });
+            
+            // Vérifier si déjà connecté
+            const storedUri = localStorage.getItem('mongo_uri');
+            if (storedUri) {
+                document.getElementById('mongodb-uri').value = storedUri;
+            }
+        });
+
+        // Initialisation du scanner
+        function initScanner() {
+            codeReader.getVideoInputDevices()
+                .then((videoInputDevices) => {
+                    if (videoInputDevices.length > 0) {
+                        // Par défaut, utiliser la caméra arrière si disponible
+                        selectedDeviceId = videoInputDevices.find(device => 
+                            device.label.toLowerCase().includes('back') || 
+                            device.label.toLowerCase().includes('arrière')
+                        )?.deviceId || videoInputDevices[0].deviceId;
+                        
+                        startButton.disabled = false;
+                    } else {
+                        alert("Aucune caméra détectée. Utilisez le mode manuel.");
+                        manualModeBtn.click();
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Erreur d'accès à la caméra: " + err);
+                });
+        }
+
+        // Démarrer le scanner
+        function startScanner() {
+            const videoElement = document.getElementById('video');
+            
+            startButton.disabled = true;
+            stopButton.disabled = false;
+            
+            codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, err) => {
+                if (result) {
+                    // Le QR code a été scanné avec succès
+                    const paymentId = result.getText();
+                    verifyTicket(paymentId);
+                    
+                    // Pause courte avant de reprendre le scan
+                    setTimeout(() => {
+                        startScanner();
+                    }, 3000);
+                }
+                
+                if (err && !(err instanceof ZXing.NotFoundException)) {
+                    console.error(err);
+                }
+            });
+        }
+
+        // Arrêter le scanner
+        function stopScanner() {
+            codeReader.reset();
+            startButton.disabled = false;
+            stopButton.disabled = true;
+        }
+
+        // Vérifier le billet
+        async function verifyTicket(paymentId) {
+            try {
+                loadingElement.style.display = 'block';
+                resultDiv.style.display = 'none';
+                
+                // Simuler l'appel à l'API pour vérifier le billet
+                const response = await simulateApiCall(paymentId);
+                
+                loadingElement.style.display = 'none';
+                
+                if (response.success) {
+                    // Billet valide
+                    resultDiv.className = 'result ' + (response.alreadyScanned ? 'error' : 'success');
+                    resultTitle.textContent = response.alreadyScanned ? 'Billet déjà scanné!' : 'Billet valide!';
+                    resultMessage.textContent = response.alreadyScanned 
+                        ? 'Ce billet a déjà été scanné le ' + new Date(response.scannedAt).toLocaleString() 
+                        : 'Accès autorisé';
+                    
+                    fullnameElement.textContent = `${response.ticket.firstName} ${response.ticket.name}`;
+                    emailElement.textContent = response.ticket.email;
+                    
+                    const categories = {
+                        earlyBird: "Early Bird",
+                        secondRelease: "Second Release",
+                        thirdRelease: "Third Release"
+                    };
+                    
+                    categoryElement.textContent = `Catégorie: ${categories[response.ticket.category] || response.ticket.category}`;
+                    paymentIdElement.textContent = `ID: ${response.ticket.paymentId}`;
+                    
+                    if (!response.alreadyScanned) {
+                        scanCount++;
+                        localStorage.setItem('scan_count', scanCount.toString());
+                        updateScanCount();
+                    }
+                } else {
+                    // Billet non trouvé ou invalide
+                    resultDiv.className = 'result error';
+                    resultTitle.textContent = 'Billet invalide!';
+                    resultMessage.textContent = response.message || 'Ce billet n\'existe pas ou n\'est pas valide.';
+                    
+                    fullnameElement.textContent = '';
+                    emailElement.textContent = '';
+                    categoryElement.textContent = '';
+                    paymentIdElement.textContent = `ID vérifié: ${paymentId}`;
+                }
+                
+                resultDiv.style.display = 'block';
+                
+            } catch (error) {
+                loadingElement.style.display = 'none';
+                console.error('Erreur lors de la vérification:', error);
+                
+                resultDiv.className = 'result error';
+                resultTitle.textContent = 'Erreur!';
+                resultMessage.textContent = 'Une erreur est survenue lors de la vérification du billet.';
+                resultDiv.style.display = 'block';
+            }
+        }
+
+        // Mise à jour du compteur de scan
+        function updateScanCount() {
+            scanCountElement.textContent = scanCount.toString();
+        }
+
+        // Dans une application réelle, cette fonction serait remplacée par un appel API à votre backend
+        async function simulateApiCall(paymentId) {
+            return new Promise(resolve => {
+                // Simuler un délai de réseau
+                setTimeout(() => {
+                    // Vérifier si on a des infos sur ce billet dans le localStorage
+                    const ticketsStr = localStorage.getItem('scanned_tickets') || '{}';
+                    const tickets = JSON.parse(ticketsStr);
+                    
+                    if (tickets[paymentId]) {
+                        // Billet déjà scanné
+                        resolve({
+                            success: true,
+                            alreadyScanned: true,
+                            scannedAt: tickets[paymentId].scannedAt,
+                            ticket: tickets[paymentId]
+                        });
+                    } else if (knownTickets[paymentId]) {
+                        // Billet connu et non scanné
+                        const ticket = {...knownTickets[paymentId]};
+                        
+                        // Enregistrer ce billet comme scanné
+                        ticket.scannedAt = new Date().toISOString();
+                        tickets[paymentId] = ticket;
+                        localStorage.setItem('scanned_tickets', JSON.stringify(tickets));
+                        
+                        resolve({
+                            success: true,
+                            alreadyScanned: false,
+                            ticket: ticket
+                        });
+                    } else {
+                        // Billet inconnu
+                        resolve({
+                            success: false,
+                            message: 'Billet non trouvé dans la base de données'
+                        });
+                    }
+                }, 500); // Délai simulé de 500ms
+            });
+        }
+
+        // Base de données simulée de billets connus
+        // Dans une application réelle, ces données viendraient de votre base de données MongoDB
+        const knownTickets = {
+            'pi_1NxYtQCYswbprtC1rbVKorhT': {
+                paymentId: 'pi_1NxYtQCYswbprtC1rbVKorhT',
+                name: 'Dupont',
+                firstName: 'Jean',
+                email: 'jean.dupont@example.com',
+                category: 'earlyBird',
+                imageConsent: true,
+                createdAt: '2023-11-20T10:30:00Z'
+            },
+            'pi_1NxYuRCYswbprtC1aV9XpL8U': {
+                paymentId: 'pi_1NxYuRCYswbprtC1aV9XpL8U',
+                name: 'Martin',
+                firstName: 'Sophie',
+                email: 'sophie.martin@example.com',
+                category: 'secondRelease',
+                imageConsent: true,
+                createdAt: '2023-11-21T14:15:00Z'
+            },
+            'pi_1NxYvSCYswbprtC1bTtRmPqV': {
+                paymentId: 'pi_1NxYvSCYswbprtC1bTtRmPqV',
+                name: 'Bernard',
+                firstName: 'Marie',
+                email: 'marie.bernard@example.com',
+                category: 'thirdRelease',
+                imageConsent: false,
+                createdAt: '2023-11-22T09:45:00Z'
+            },
+            // Vous pouvez ajouter d'autres tickets pour tester
+        };
+    </script>
+</body>
+</html>
