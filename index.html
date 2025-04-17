@@ -424,64 +424,75 @@
 
         // Vérifier le billet
         async function verifyTicket(paymentId) {
-            try {
-                loadingElement.style.display = 'block';
-                resultDiv.style.display = 'none';
-                
-                // Simuler l'appel à l'API pour vérifier le billet
-                const response = await simulateApiCall(paymentId);
-                
-                loadingElement.style.display = 'none';
-                
-                if (response.success) {
-                    // Billet valide
-                    resultDiv.className = 'result ' + (response.alreadyScanned ? 'error' : 'success');
-                    resultTitle.textContent = response.alreadyScanned ? 'Billet déjà scanné!' : 'Billet valide!';
-                    resultMessage.textContent = response.alreadyScanned 
-                        ? 'Ce billet a déjà été scanné le ' + new Date(response.scannedAt).toLocaleString() 
-                        : 'Accès autorisé';
-                    
-                    fullnameElement.textContent = `${response.ticket.firstName} ${response.ticket.name}`;
-                    emailElement.textContent = response.ticket.email;
-                    
-                    const categories = {
-                        earlyBird: "Early Bird",
-                        secondRelease: "Second Release",
-                        thirdRelease: "Third Release"
-                    };
-                    
-                    categoryElement.textContent = `Catégorie: ${categories[response.ticket.category] || response.ticket.category}`;
-                    paymentIdElement.textContent = `ID: ${response.ticket.paymentId}`;
-                    
-                    if (!response.alreadyScanned) {
-                        scanCount++;
-                        localStorage.setItem('scan_count', scanCount.toString());
-                        updateScanCount();
-                    }
-                } else {
-                    // Billet non trouvé ou invalide
-                    resultDiv.className = 'result error';
-                    resultTitle.textContent = 'Billet invalide!';
-                    resultMessage.textContent = response.message || 'Ce billet n\'existe pas ou n\'est pas valide.';
-                    
-                    fullnameElement.textContent = '';
-                    emailElement.textContent = '';
-                    categoryElement.textContent = '';
-                    paymentIdElement.textContent = `ID vérifié: ${paymentId}`;
-                }
-                
-                resultDiv.style.display = 'block';
-                
-            } catch (error) {
-                loadingElement.style.display = 'none';
-                console.error('Erreur lors de la vérification:', error);
-                
-                resultDiv.className = 'result error';
-                resultTitle.textContent = 'Erreur!';
-                resultMessage.textContent = 'Une erreur est survenue lors de la vérification du billet.';
-                resultDiv.style.display = 'block';
-            }
+    // Extraire l'ID du paiement si c'est une URL
+    if (paymentId.includes('/ticket/')) {
+        // Format attendu: https://hebergement.ch/ticket/pi_XXXXXXXX
+        const parts = paymentId.split('/ticket/');
+        if (parts.length > 1) {
+            paymentId = parts[1];
+            console.log('ID extrait de l\'URL:', paymentId);
         }
+    }
+
+    try {
+        // Récupérer les billets déjà scannés
+        const ticketsStr = localStorage.getItem('scanned_tickets') || '{}';
+        const tickets = JSON.parse(ticketsStr);
+        
+        // Vérifier si le billet est déjà scanné
+        if (tickets[paymentId]) {
+            // Billet déjà scanné
+            showResult(false, {
+                message: 'Ce billet a déjà été scanné!',
+                details: {
+                    paymentId: paymentId,
+                    name: tickets[paymentId].name,
+                    firstName: tickets[paymentId].firstName,
+                    email: tickets[paymentId].email,
+                    category: tickets[paymentId].category,
+                    scannedAt: new Date(tickets[paymentId].scannedAt).toLocaleString()
+                }
+            });
+        } else if (knownTickets[paymentId]) {
+            // Billet valide et non scanné
+            const ticket = {...knownTickets[paymentId]};
+            
+            // Marquer comme scanné
+            ticket.scannedAt = new Date().toISOString();
+            tickets[paymentId] = ticket;
+            localStorage.setItem('scanned_tickets', JSON.stringify(tickets));
+            
+            // Incrémenter le compteur
+            scanCount++;
+            localStorage.setItem('scan_count', scanCount.toString());
+            scanCountElement.textContent = scanCount.toString();
+            
+            // Afficher le résultat
+            showResult(true, {
+                message: 'Billet valide! Accès autorisé.',
+                details: ticket
+            });
+        } else {
+            // Billet inconnu
+            showResult(false, {
+                message: 'Billet inconnu ou invalide!',
+                details: {
+                    paymentId: paymentId
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Erreur lors de la vérification:', error);
+        
+        showResult(false, {
+            message: 'Une erreur est survenue lors de la vérification du billet.',
+            details: {
+                paymentId: paymentId,
+                error: error.message
+            }
+        });
+    }
+}
 
         // Mise à jour du compteur de scan
         function updateScanCount() {
