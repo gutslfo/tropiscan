@@ -3,319 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner Tropitech</title>
-    <!-- Bibliothèque pour QR code -->
+    <title>Scanner QR Code Tropitech</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
             background-color: #121212;
             color: white;
         }
-        .container {
-            max-width: 600px;
+        #qr-reader {
+            width: 100%;
+            max-width: 500px;
             margin: 0 auto;
-            padding: 15px;
         }
-        header {
-            text-align: center;
-            margin-bottom: 20px;
+        .valid-badge {
+            background-color: rgba(16, 185, 129, 0.7);
         }
-        h1 {
-            color: #9333ea;
-            margin: 0;
-            padding: 10px 0;
+        .invalid-badge {
+            background-color: rgba(239, 68, 68, 0.7);
         }
-        #reader {
-            width: 100%;
+        .debug-log {
             background: #1a1a1a;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        .result {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 5px;
-            text-align: center;
-            display: none;
-        }
-        .success {
-            background-color: rgba(22, 163, 74, 0.2);
-            border: 1px solid #16a34a;
-        }
-        .error {
-            background-color: rgba(220, 38, 38, 0.2);
-            border: 1px solid #dc2626;
-        }
-        .ticket-info {
-            margin-top: 15px;
-            padding: 15px;
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            text-align: left;
-        }
-        .ticket-info p {
-            margin: 5px 0;
-        }
-        button {
-            background-color: #9333ea;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 10px auto;
-            display: block;
-            width: 100%;
-            max-width: 300px;
-        }
-        #manual-entry {
-            margin-top: 20px;
-            text-align: center;
-        }
-        input {
+            color: #ccc;
             padding: 10px;
-            width: 100%;
-            max-width: 300px;
-            margin: 0 auto 10px auto;
-            border-radius: 5px;
-            border: none;
-            background-color: #333;
-            color: white;
-        }
-        .counter {
-            text-align: center;
-            margin: 20px 0;
-            font-size: 18px;
-            background-color: rgba(255, 255, 255, 0.1);
-            padding: 10px;
-            border-radius: 5px;
-        }
-        #scan-count {
-            font-weight: bold;
-            color: #9333ea;
+            font-size: 12px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-family: monospace;
+            white-space: pre-wrap;
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1>Tropitech - Scanner de Billets</h1>
-        </header>
-        
-        <div id="reader"></div>
-        
-        <div id="manual-entry">
-            <h3>Saisie manuelle</h3>
-            <input type="text" id="manual-id" placeholder="ID du billet (ex: pi_...)">
-            <button id="verify-manual">Vérifier</button>
+<body class="min-h-screen p-4">
+    <div class="container mx-auto max-w-md">
+        <h1 class="text-2xl font-bold text-center mb-6">Scanner Tropitech</h1>
+
+        <div class="bg-gray-900 rounded-lg p-4 mb-6">
+            <div id="qr-reader"></div>
+            <p class="text-center text-sm text-gray-400 mt-4">Placez le QR code dans le cadre</p>
         </div>
-        
-        <div class="counter">
-            Billets scannés: <span id="scan-count">0</span>
+
+        <div id="result" class="bg-gray-900 rounded-lg p-4 mb-6 hidden">
+            <h2 class="text-xl font-bold mb-2">Résultat</h2>
+            <div id="scan-status" class="p-3 rounded-lg text-center mb-4"></div>
+            <div id="ticket-details"></div>
         </div>
-        
-        <div class="result" id="result">
-            <h2 id="result-title">Résultat du scan</h2>
-            <p id="result-message"></p>
-            <div class="ticket-info">
-                <p id="fullname"></p>
-                <p id="email"></p>
-                <p id="category"></p>
-                <p id="payment-id"></p>
-            </div>
-            <button id="reset-button">Scanner un autre billet</button>
+
+        <div class="mt-6">
+            <h2 class="text-lg font-semibold mb-2">Saisie manuelle de test</h2>
+            <input id="manual" class="p-2 rounded bg-gray-800 w-full" placeholder="Saisir un ID de billet (ex: pi_...)" />
+            <button onclick="onScanSuccess(document.getElementById('manual').value)" class="btn mt-2 w-full bg-purple-600 hover:bg-purple-700 rounded px-4 py-2">Tester manuellement</button>
         </div>
+
+        <div id="debug" class="debug-log mt-6 hidden"></div>
     </div>
 
     <script>
-        // Éléments du DOM
-        const resultDiv = document.getElementById('result');
-        const resultTitle = document.getElementById('result-title');
-        const resultMessage = document.getElementById('result-message');
-        const fullnameElement = document.getElementById('fullname');
-        const emailElement = document.getElementById('email');
-        const categoryElement = document.getElementById('category');
-        const paymentIdElement = document.getElementById('payment-id');
-        const scanCountElement = document.getElementById('scan-count');
-        const resetButton = document.getElementById('reset-button');
-        const manualIdInput = document.getElementById('manual-id');
-        const verifyManualBtn = document.getElementById('verify-manual');
-
-        // Variables globales
-        let html5QrCode;
-        let scanCount = parseInt(localStorage.getItem('scan_count') || '0');
-        scanCountElement.textContent = scanCount.toString();
-
-        // Initialisation du scanner
-        function initScanner() {
-            html5QrCode = new Html5Qrcode("reader");
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-            
-            html5QrCode.start(
-                { facingMode: "environment" }, 
-                config, 
-                onScanSuccess, 
-                onScanFailure
-            ).catch(err => {
-                console.error("Error starting scanner:", err);
-                alert("Erreur d'accès à la caméra: " + err);
-            });
-        }
-
-        // Succès du scan
-        function onScanSuccess(decodedText, decodedResult) {
-            // Arrêter le scanner temporairement
-            html5QrCode.pause();
-            
-            // Traiter le QR code scanné
-            verifyTicket(decodedText);
-        }
-
-        // Échec du scan
-        function onScanFailure(error) {
-            // Ignorer les erreurs de scan standard (pas de QR code détecté)
-        }
-
-        // Vérifier le billet (simulé)
-        function verifyTicket(paymentId) {
-            // Récupérer les billets déjà scannés
-            const ticketsStr = localStorage.getItem('scanned_tickets') || '{}';
-            const tickets = JSON.parse(ticketsStr);
-            
-            // Vérifier si le billet est déjà scanné
-            if (tickets[paymentId]) {
-                // Billet déjà scanné
-                showResult(false, {
-                    message: 'Ce billet a déjà été scanné!',
-                    details: {
-                        paymentId: paymentId,
-                        name: tickets[paymentId].name,
-                        firstName: tickets[paymentId].firstName,
-                        email: tickets[paymentId].email,
-                        category: tickets[paymentId].category,
-                        scannedAt: new Date(tickets[paymentId].scannedAt).toLocaleString()
-                    }
-                });
-            } else if (knownTickets[paymentId]) {
-                // Billet valide et non scanné
-                const ticket = {...knownTickets[paymentId]};
-                
-                // Marquer comme scanné
-                ticket.scannedAt = new Date().toISOString();
-                tickets[paymentId] = ticket;
-                localStorage.setItem('scanned_tickets', JSON.stringify(tickets));
-                
-                // Incrémenter le compteur
-                scanCount++;
-                localStorage.setItem('scan_count', scanCount.toString());
-                scanCountElement.textContent = scanCount.toString();
-                
-                // Afficher le résultat
-                showResult(true, {
-                    message: 'Billet valide! Accès autorisé.',
-                    details: ticket
-                });
-            } else {
-                // Billet inconnu
-                showResult(false, {
-                    message: 'Billet inconnu ou invalide!',
-                    details: {
-                        paymentId: paymentId
-                    }
-                });
-            }
-        }
-
-        // Afficher le résultat du scan
-        function showResult(isValid, data) {
-            resultDiv.className = 'result ' + (isValid ? 'success' : 'error');
-            resultTitle.textContent = isValid ? 'Billet valide!' : 'Billet invalide!';
-            resultMessage.textContent = data.message;
-            
-            if (data.details) {
-                fullnameElement.textContent = data.details.firstName && data.details.name ? 
-                    `Nom: ${data.details.firstName} ${data.details.name}` : '';
-                
-                emailElement.textContent = data.details.email ? 
-                    `Email: ${data.details.email}` : '';
-                
-                const categories = {
-                    earlyBird: "Early Bird",
-                    secondRelease: "Second Release",
-                    thirdRelease: "Third Release"
-                };
-                
-                categoryElement.textContent = data.details.category ? 
-                    `Catégorie: ${categories[data.details.category] || data.details.category}` : '';
-                
-                paymentIdElement.textContent = data.details.paymentId ? 
-                    `ID: ${data.details.paymentId}` : '';
-                
-                if (data.details.scannedAt && !isValid) {
-                    paymentIdElement.textContent += ` (Scanné le: ${data.details.scannedAt})`;
-                }
-            }
-            
-            resultDiv.style.display = 'block';
-        }
-
-        // Réinitialiser le scanner
-        function resetScanner() {
-            resultDiv.style.display = 'none';
-            
-            if (html5QrCode) {
-                html5QrCode.resume();
-            }
-        }
-
-        // Gestionnaires d'événements
-        document.addEventListener('DOMContentLoaded', initScanner);
-        resetButton.addEventListener('click', resetScanner);
-        
-        verifyManualBtn.addEventListener('click', () => {
-            const paymentId = manualIdInput.value.trim();
-            if (paymentId) {
-                verifyTicket(paymentId);
-                manualIdInput.value = '';
-            } else {
-                alert("Veuillez entrer un ID de billet valide");
-            }
-        });
-
-        // Base de données simulée
-        // Remplacez ces données par vos propres billets
         const knownTickets = {
             'pi_1NxYtQCYswbprtC1rbVKorhT': {
-                paymentId: 'pi_1NxYtQCYswbprtC1rbVKorhT',
-                name: 'Dupont',
-                firstName: 'Jean',
-                email: 'jean.dupont@example.com',
-                category: 'earlyBird',
-                createdAt: '2023-11-20T10:30:00Z'
+                name: 'Dupont', firstName: 'Jean', email: 'jean.dupont@example.com', category: 'Early Bird'
             },
             'pi_1NxYuRCYswbprtC1aV9XpL8U': {
-                paymentId: 'pi_1NxYuRCYswbprtC1aV9XpL8U',
-                name: 'Martin',
-                firstName: 'Sophie',
-                email: 'sophie.martin@example.com',
-                category: 'secondRelease',
-                createdAt: '2023-11-21T14:15:00Z'
+                name: 'Martin', firstName: 'Sophie', email: 'sophie.martin@example.com', category: 'Second Release'
             },
             'pi_1NxYvSCYswbprtC1bTtRmPqV': {
-                paymentId: 'pi_1NxYvSCYswbprtC1bTtRmPqV',
-                name: 'Bernard',
-                firstName: 'Marie',
-                email: 'marie.bernard@example.com',
-                category: 'thirdRelease',
-                createdAt: '2023-11-22T09:45:00Z'
-            },
-            // Ajoutez ici vos propres billets pour tests
-            // Format: 'paymentId': { paymentId, name, firstName, email, category }
+                name: 'Bernard', firstName: 'Marie', email: 'marie.bernard@example.com', category: 'Third Release'
+            }
         };
+
+        const scannedTickets = {};
+
+        const html5QrCode = new Html5Qrcode("qr-reader");
+        const config = { fps: 10, qrbox: 250 };
+
+        function logDebug(message) {
+            const debugEl = document.getElementById('debug');
+            debugEl.classList.remove('hidden');
+            debugEl.textContent += `\n${new Date().toLocaleTimeString()} - ${message}`;
+        }
+
+        function startScanner() {
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
+                .then(() => logDebug("Caméra démarrée avec succès."))
+                .catch(err => {
+                    alert("Erreur d'accès à la caméra: " + err);
+                    logDebug("Erreur caméra: " + err);
+                });
+        }
+
+        function onScanSuccess(decodedText) {
+            logDebug("QR détecté: " + decodedText);
+            if (scannedTickets[decodedText]) {
+                showResult(false, "DÉJÀ SCANNÉ", "Ce billet a déjà été scanné", scannedTickets[decodedText]);
+                return;
+            }
+
+            const ticket = knownTickets[decodedText];
+            if (ticket) {
+                scannedTickets[decodedText] = ticket;
+                showResult(true, "VALIDE", "Billet valide", ticket);
+            } else {
+                showResult(false, "INVALIDE", "Ce billet n'est pas reconnu", { id: decodedText });
+            }
+        }
+
+        function onScanFailure(error) {
+            logDebug("Aucun QR détecté ou lecture échouée");
+        }
+
+        function showResult(isValid, status, message, ticket) {
+            const resultEl = document.getElementById('result');
+            const statusEl = document.getElementById('scan-status');
+            const detailsEl = document.getElementById('ticket-details');
+
+            resultEl.classList.remove('hidden');
+            statusEl.className = (isValid ? 'valid-badge' : 'invalid-badge') + ' p-3 rounded-lg text-center mb-4';
+            statusEl.innerHTML = `<div class=\"font-bold text-lg\">${status}</div><p>${message}</p>`;
+
+            if (ticket.name) {
+                detailsEl.innerHTML = `
+                    <div class=\"p-3 bg-gray-800 rounded-lg\">
+                        <div><span class=\"text-gray-400\">Nom:</span> ${ticket.firstName} ${ticket.name}</div>
+                        <div><span class=\"text-gray-400\">Email:</span> ${ticket.email}</div>
+                        <div><span class=\"text-gray-400\">Catégorie:</span> ${ticket.category}</div>
+                        <div><span class=\"text-gray-400\">ID:</span> ${ticket.id || ''}</div>
+                    </div>`;
+            } else {
+                detailsEl.innerHTML = `<div class=\"p-3 bg-gray-800 rounded-lg\"><div><span class=\"text-gray-400\">ID:</span> ${ticket.id}</div></div>`;
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", startScanner);
     </script>
 </body>
 </html>
