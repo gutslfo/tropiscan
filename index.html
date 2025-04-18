@@ -94,12 +94,14 @@
         function extractTicketId(decodedText) {
             try {
                 const url = new URL(decodedText);
-                const paramValue = url.pathname.includes("pi=")
-                    ? url.pathname.split("pi=")[1]
-                    : url.searchParams.get("pi") || url.pathname.split("/").pop();
-                return paramValue;
+                const pathParts = url.pathname.split("/");
+                const index = pathParts.findIndex(p => p === "ticket");
+                if (index !== -1 && pathParts[index + 1]) {
+                    return pathParts[index + 1];
+                }
+                return decodedText;
             } catch {
-                return decodedText; // fallback si ce n'est pas une URL
+                return decodedText;
             }
         }
 
@@ -141,10 +143,10 @@
                         <div><span class=\"text-gray-400\">Nom:</span> ${ticket.firstName} ${ticket.name}</div>
                         <div><span class=\"text-gray-400\">Email:</span> ${ticket.email}</div>
                         <div><span class=\"text-gray-400\">Catégorie:</span> ${ticket.category}</div>
-                        <div><span class=\"text-gray-400\">ID:</span> ${ticket.id || ''}</div>
+                        <div><span class=\"text-gray-400\">ID:</span> ${ticket.id || ticketId}</div>
                     </div>`;
             } else {
-                detailsEl.innerHTML = `<div class=\"p-3 bg-gray-800 rounded-lg\"><div><span class=\"text-gray-400\">ID:</span> ${ticket.id}</div></div>`;
+                detailsEl.innerHTML = `<div class=\"p-3 bg-gray-800 rounded-lg\"><div><span class=\"text-gray-400\">ID:</span> ${ticket.id || ticketId}</div></div>`;
             }
         }
 
