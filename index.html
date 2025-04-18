@@ -22,6 +22,35 @@
         .invalid-badge {
             background-color: rgba(239, 68, 68, 0.7);
         }
+        .warning-badge {
+            background-color: rgba(245, 158, 11, 0.7);
+        }
+        #raw-data {
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+            padding: 8px;
+            margin-top: 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+        }
+        .scanner-controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            justify-content: center;
+        }
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            background-color: #4a0072;
+            color: white;
+            font-weight: 500;
+        }
+        .btn:hover {
+            background-color: #6a0092;
+        }
     </style>
 </head>
 <body class="min-h-screen p-4">
@@ -31,41 +60,85 @@
         <div class="bg-gray-900 rounded-lg p-4 mb-6">
             <div id="qr-reader"></div>
             <p class="text-center text-sm text-gray-400 mt-4">Placez le QR code dans le cadre</p>
+            
+            <div class="scanner-controls">
+                <button id="toggle-camera" class="btn">Changer de caméra</button>
+                <button id="toggle-debug" class="btn">Debug</button>
+            </div>
         </div>
 
         <div id="result" class="bg-gray-900 rounded-lg p-4 mb-6 hidden">
             <h2 class="text-xl font-bold mb-2">Résultat</h2>
             <div id="scan-status" class="p-3 rounded-lg text-center mb-4"></div>
             <div id="ticket-details"></div>
+            <div id="raw-data" class="hidden"></div>
+        </div>
+        
+        <div id="history" class="bg-gray-900 rounded-lg p-4">
+            <h2 class="text-xl font-bold mb-2">Historique des scans</h2>
+            <div id="history-list" class="space-y-2">
+                <p class="text-gray-400 text-center">Aucun scan effectué</p>
+            </div>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const html5QrCode = new Html5Qrcode("qr-reader");
+            // Éléments DOM
             const resultElement = document.getElementById('result');
             const scanStatusElement = document.getElementById('scan-status');
             const ticketDetailsElement = document.getElementById('ticket-details');
+            const rawDataElement = document.getElementById('raw-data');
+            const historyListElement = document.getElementById('history-list');
+            const toggleCameraButton = document.getElementById('toggle-camera');
+            const toggleDebugButton = document.getElementById('toggle-debug');
+            
+            // État du scanner
+            const scannedTickets = {};
+            let currentCamera = 'environment'; // 'user' pour caméra avant
+            let debugMode = false;
             
             // Configuration du scanner
+            const html5QrCode = new Html5Qrcode("qr-reader");
             const qrConfig = {
                 fps: 10,
-                qrbox: { width: 250, height: 250 },
-                formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ]
+                qrbox: 250
             };
             
-            // Cache des billets scannés
-            const scannedTickets = {};
-            
             // Démarrer le scanner
-            html5QrCode.start(
-                { facingMode: "environment" },
-                qrConfig,
-                onQrCodeSuccess,
-                onQrCodeError
-            ).catch(err => {
-                alert("Erreur d'accès à la caméra: " + err);
-                console.error("Erreur d'accès à la caméra:", err);
+            startScanner();
+            
+            // Fonctions du scanner
+            function startScanner() {
+                html5QrCode.start(
+                    { facingMode: currentCamera },
+                    qrConfig,
+                    onQrCodeSuccess,
+                    onQrCodeError
+                ).catch(err => {
+                    alert("Erreur d'accès à la caméra: " + err);
+                    console.error("Erreur d'accès à la caméra:", err);
+                });
+            }
+            
+            // Changer de caméra
+            toggleCameraButton.addEventListener('click', function() {
+                html5QrCode.stop().then(() => {
+                    currentCamera = currentCamera === 'environment' ? 'user' : 'environment';
+                    startScanner();
+                }).catch(err => {
+                    console.error("Erreur lors du changement de caméra:", err);
+                });
+            });
+            
+            // Activer/désactiver le mode debug
+            toggleDebugButton.addEventListener('click', function() {
+                debugMode = !debugMode;
+                if (debugMode) {
+                    rawDataElement.classList.remove('hidden');
+                } else {
+                    rawDataElement.classList.add('hidden');
+                }
             });
             
             // Fonction appelée quand un QR code est détecté
@@ -80,9 +153,21 @@
             
             // Traiter le contenu du QR code
             function processQrCode(qrData) {
+                // Afficher les données brutes en mode debug
+                if (debugMode) {
+                    rawDataElement.textContent = qrData;
+                    rawDataElement.classList.remove('hidden');
+                } else {
+                    rawDataElement.classList.add('hidden');
+                }
+                
                 // Extraire l'ID du billet
                 let ticketId = qrData;
+                let isUrlFormat = false;
+                
+                // Format spécifique Tropitech: https://tropitech.ch/ticket/[paymentId]
                 if (qrData.includes('/ticket/')) {
+                    isUrlFormat = true;
                     const parts = qrData.split('/ticket/');
                     if (parts.length > 1) {
                         ticketId = parts[1];
@@ -92,29 +177,32 @@
                 // Vérifier si déjà scanné
                 if (scannedTickets[ticketId]) {
                     showResult(false, "DÉJÀ SCANNÉ", "Ce billet a déjà été scanné", scannedTickets[ticketId]);
+                    addToHistory(ticketId, false, "DÉJÀ SCANNÉ");
                     return;
                 }
                 
-                // Vérifier format valide
-                const isValidFormat = ticketId.startsWith('pi_') || ticketId.match(/^[a-zA-Z0-9_]{10,}$/);
+                // Vérifier format valide - accepte les ID Stripe (pi_...) ou tout ID alphanumérique d'au moins 8 caractères
+                const isValidFormat = ticketId.startsWith('pi_') || ticketId.match(/^[a-zA-Z0-9_-]{8,}$/);
                 
                 if (isValidFormat) {
                     // Simuler un billet valide
                     const mockTicket = {
                         id: ticketId,
-                        name: "Dupont",
-                        firstName: "Jean",
-                        email: `${ticketId.substring(0, 5)}@example.com`,
-                        category: "Early Bird",
+                        name: generateRandomName(),
+                        firstName: generateRandomFirstName(),
+                        email: `${ticketId.substring(0, 5).toLowerCase()}@example.com`,
+                        category: generateRandomCategory(),
                         date: new Date().toLocaleString()
                     };
                     
                     // Enregistrer comme scanné
                     scannedTickets[ticketId] = mockTicket;
                     
-                    showResult(true, "VALIDE", "Billet accepté", mockTicket);
+                    showResult(true, "VALIDE", isUrlFormat ? "Billet Tropitech valide" : "Billet accepté", mockTicket);
+                    addToHistory(ticketId, true, "VALIDE");
                 } else {
                     showResult(false, "INVALIDE", "Format de billet non reconnu", null);
+                    addToHistory(ticketId, false, "INVALIDE");
                 }
             }
             
@@ -123,7 +211,7 @@
                 resultElement.classList.remove('hidden');
                 
                 scanStatusElement.innerHTML = '';
-                scanStatusElement.className = isValid ? 'valid-badge' : 'invalid-badge';
+                scanStatusElement.className = isValid ? 'valid-badge p-3 rounded-lg text-center mb-4' : 'invalid-badge p-3 rounded-lg text-center mb-4';
                 
                 scanStatusElement.innerHTML = `
                     <div class="font-bold text-lg">${status}</div>
@@ -146,7 +234,7 @@
                                 <span class="text-gray-400">Catégorie:</span>
                                 <span>${ticket.category}</span>
                             </div>
-                            <div class="mb-2">
+                            <div class="mb-1">
                                 <span class="text-gray-400">ID:</span>
                                 <span class="text-xs">${ticket.id}</span>
                             </div>
@@ -155,10 +243,61 @@
                 }
                 
                 // Jouer un son
-                const audio = new Audio(isValid ? 
-                    'data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV' : 
-                    'data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV');
-                audio.play();
+                playSound(isValid);
+            }
+            
+            // Ajouter à l'historique
+            function addToHistory(ticketId, isValid, status) {
+                // Supprimer le message par défaut
+                if (historyListElement.textContent.includes('Aucun scan effectué')) {
+                    historyListElement.innerHTML = '';
+                }
+                
+                // Limiter l'ID à afficher
+                const shortId = ticketId.length > 10 ? ticketId.substring(0, 10) + '...' : ticketId;
+                
+                // Créer l'élément d'historique
+                const historyItem = document.createElement('div');
+                historyItem.className = 'p-2 bg-gray-800 rounded flex justify-between items-center';
+                
+                const statusClass = isValid ? 'valid-badge' : 'invalid-badge';
+                
+                historyItem.innerHTML = `
+                    <span class="text-sm">${new Date().toLocaleTimeString()}</span>
+                    <span class="text-xs">${shortId}</span>
+                    <span class="${statusClass} px-2 py-1 text-xs rounded">${status}</span>
+                `;
+                
+                // Ajouter au début de la liste
+                historyListElement.insertBefore(historyItem, historyListElement.firstChild);
+            }
+            
+            // Jouer un son selon le résultat
+            function playSound(isValid) {
+                try {
+                    const audio = new Audio(isValid ? 
+                        'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAABPAAMzMzMzMzMzMzMzMzMzMzMzMzMzOZmZmZmZmZmZmZmZmZmZmZmZmZmZnMzMzMzMzMzMzMzMzMzMzMzMzMzMz///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYkAAAAAAAA8MCFkc6QAAAAAAAAAAAAAAAAAAAAAP/jeMAAAAAAAAAAAABNYXRyb3NrYQAAAFhJbmZvAAAADwAAAAMAAAk7ADMzMzMzMzMzMzMzMzMzMzMzMzMzmZmZmZmZmZmZmZmZmZmZmZmZmZmZzMzMzMzMzMzMzMzMzMzMzMzMzMzM////////////////////////////////////////////AAAAAExhdmM1OC4xMwAAAAAAAAAAAAAkBgoAAAAAAAAJO7GILUkAAAAAAAAAAAAAAAAAQgD/+9DEAAAGkAN/tBAAL5QQreZ2gAUAJAG1a3XO3773S7WO1rGkMYcbvGCKnTsYQfvh/CAIAgCYg+D4fD8MCDweBAEJDjg8UGJZUuuEBDiw5UcJlEAhI8QDHlwxw+GJYbD4OCHHi6WAwQZHnAgkeDBiOFx/+Z7o5Id85UuSzx8fIJGlpYuNlf7///5QfKD8PKD5sMsDweBAEwfD4fh+GAQBAEgQBAEg+H4QPh5QBAEAQBAEAQAsAAAmYQGACBSIUH////////v//+gIBkCQ2IGQ2ICIMgIC//sCYMIYPhgTB8PmxPh+GD7//4Pm/8Hw/Dw/D62GBANyAoDgQcCAIAgCHgQBBgCHgQBM+oEAQ+D4fhgQBAEPgg+D4fmA+GBAEP/CAIOA+D1sQBoIABQAeAIKgcD4YwPiGAOAZh//tUxBTGJABJAAAAAOAJAAAAAgAAA' : 
+                        'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//uQxAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAADAAAGhgBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVWqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqr///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAGhqNHmHMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAALiDABAALiDAAQBAICA+H/DggCDAPh8Jg+GAIHBB///CEPwff8Hw+H4IAgCAIB8HwfD4fD4Pg+CAIAgCAIAgCAIBsN4fBAEHwfD4IAgCYPg+D4f/gQBAEAQDYEAQf/4Pg+H+oEA+H//D4f//CAIAgCAb//4QBANgQBA//4fBAEAQBAEA2G8Pg+CAIOCAIAgG///8Hx8Hwf//D4fD8EAQBAEAQBAEAQDYbw+CAIPg+HwQBAEwfB8Hw//AgCAIAgGwIAg//wfB8P9QIB8P/+Hw///CAIAgCAb//4QBANgQBA//4fBAEAQBAEA2G8Pg+CAIOCAIAgG///+2TEFMYkAEkAAAAAOAJAAAAAgAAA');
+                    audio.play();
+                } catch(e) {
+                    console.log("Son non supporté:", e);
+                }
+            }
+            
+            // Générateurs de données aléatoires pour les tickets de démo
+            function generateRandomName() {
+                const names = ["Dupont", "Martin", "Bernard", "Petit", "Dubois", "Moreau", "Laurent", "Simon", "Michel", "Lefebvre"];
+                return names[Math.floor(Math.random() * names.length)];
+            }
+            
+            function generateRandomFirstName() {
+                const firstNames = ["Jean", "Marie", "Pierre", "Sophie", "Paul", "Thomas", "Antoine", "Émilie", "Amélie", "Nicolas"];
+                return firstNames[Math.floor(Math.random() * firstNames.length)];
+            }
+            
+            function generateRandomCategory() {
+                const categories = ["Early Bird", "Second Release", "Third Release"];
+                return categories[Math.floor(Math.random() * categories.length)];
             }
         });
     </script>
