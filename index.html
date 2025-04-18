@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scanner QR Code Tropitech</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.4/html5-qrcode.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         body {
             background-color: #121212;
@@ -16,378 +16,72 @@
             max-width: 500px;
             margin: 0 auto;
         }
-        #qr-reader__scan_region {
-            background: black;
-        }
-        .scanner-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 255, 0, 0.5);
-            display: none;
-        }
-        .container {
-            max-width: 600px;
-        }
         .valid-badge {
             background-color: rgba(16, 185, 129, 0.7);
         }
         .invalid-badge {
             background-color: rgba(239, 68, 68, 0.7);
         }
-        .settings-panel {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
-        }
-        .settings-panel.open {
-            max-height: 500px;
-        }
-        /* Personnalisation pour Tropitech */
-        .tropitech-bg {
-            background: linear-gradient(to bottom right, #1e1e1e, #2d1e2f);
-        }
-        .loading-spinner {
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            border: 6px solid rgba(255, 255, 255, 0.3);
-            border-top-color: #fff;
-            margin: 20px auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .blink {
-            animation: blink-animation 1s steps(5, start) infinite;
-        }
-        @keyframes blink-animation {
-            to { visibility: hidden; }
-        }
     </style>
 </head>
-<body class="tropitech-bg min-h-screen">
-    <div class="container mx-auto px-4 py-8">
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold text-white">Scanner Tropitech</h1>
-            <button id="settingsBtn" class="px-4 py-2 bg-purple-800 rounded-lg hover:bg-purple-700 transition duration-300">
-                ⚙️ Options
-            </button>
+<body class="min-h-screen p-4">
+    <div class="container mx-auto max-w-md">
+        <h1 class="text-2xl font-bold text-center mb-6">Scanner Tropitech</h1>
+        
+        <div class="bg-gray-900 rounded-lg p-4 mb-6">
+            <div id="qr-reader"></div>
+            <p class="text-center text-sm text-gray-400 mt-4">Placez le QR code dans le cadre</p>
         </div>
 
-        <div id="settingsPanel" class="settings-panel bg-gray-900 rounded-lg p-5 mb-6">
-            <h2 class="text-xl font-bold mb-4">Options avancées</h2>
-            <div class="mb-4">
-                <label class="flex items-center">
-                    <input type="checkbox" id="offlineMode" class="mr-2 h-5 w-5">
-                    <span>Mode hors-ligne (stockage local)</span>
-                </label>
-                <p class="text-sm text-gray-400 mt-1">Active le stockage des données de scan dans ce navigateur uniquement</p>
-            </div>
-            <div class="mb-4">
-                <label class="block text-sm font-medium mb-2">Son de notification</label>
-                <select id="soundOption" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md">
-                    <option value="on">Activé</option>
-                    <option value="off">Désactivé</option>
-                </select>
-            </div>
-            <div class="mb-4">
-                <button id="clearDataBtn" class="px-3 py-1 bg-red-800 text-white rounded-md hover:bg-red-700">
-                    Effacer toutes les données
-                </button>
-                <p class="text-sm text-gray-400 mt-1">Supprime l'historique des scans et réinitialise les options</p>
-            </div>
-            <div class="mb-4">
-                <button id="exportDataBtn" class="px-3 py-1 bg-blue-800 text-white rounded-md hover:bg-blue-700">
-                    Exporter les données (CSV)
-                </button>
-            </div>
-            <div class="flex justify-end">
-                <button id="closeSettingsBtn" class="px-4 py-2 bg-gray-700 text-white rounded-md">
-                    Fermer
-                </button>
-            </div>
-        </div>
-
-        <div id="mainPanel">
-            <div class="bg-gray-900 rounded-lg p-6 mb-6">
-                <div id="qr-reader"></div>
-                <div class="scanner-overlay" id="scannerOverlay"></div>
-                <div class="mt-4 text-center">
-                    <p class="text-gray-400">Placez le QR code dans le cadre pour scanner</p>
-                </div>
-            </div>
-
-            <div id="lastScanResult" class="bg-gray-900 rounded-lg p-6 hidden">
-                <h2 class="text-xl font-bold mb-4">Résultat du scan</h2>
-                <div id="scanStatus" class="mb-4 p-3 rounded-lg text-center"></div>
-                <div id="ticketDetails" class="space-y-3">
-                    <!-- Le contenu sera rempli dynamiquement -->
-                </div>
-            </div>
-
-            <div id="scanStats" class="bg-gray-800 rounded-lg p-4 mb-6">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <span class="text-sm text-gray-400">Total scanné:</span>
-                        <span id="totalScanned" class="text-lg font-bold ml-2">0</span>
-                    </div>
-                    <div>
-                        <span class="text-sm text-gray-400">Valides:</span>
-                        <span id="validScans" class="text-lg font-bold ml-2 text-green-500">0</span>
-                    </div>
-                    <div>
-                        <span class="text-sm text-gray-400">Doublons:</span>
-                        <span id="duplicateScans" class="text-lg font-bold ml-2 text-yellow-500">0</span>
-                    </div>
-                </div>
-            </div>
-
-            <div id="scanHistory" class="bg-gray-900 rounded-lg p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-bold">Historique des scans</h2>
-                    <button id="clearHistoryBtn" class="px-3 py-1 bg-red-800 text-white rounded-md hover:bg-red-700 text-sm">
-                        Effacer
-                    </button>
-                </div>
-                <div class="overflow-hidden rounded-lg border border-gray-700">
-                    <table class="min-w-full divide-y divide-gray-700">
-                        <thead class="bg-gray-800">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Heure</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">ID</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Statut</th>
-                            </tr>
-                        </thead>
-                        <tbody id="scanHistoryBody" class="bg-gray-900 divide-y divide-gray-700">
-                            <!-- Les entrées seront ajoutées dynamiquement -->
-                        </tbody>
-                    </table>
-                </div>
-                <p id="noScansMessage" class="text-center py-4 text-gray-400">Aucun scan effectué</p>
-            </div>
+        <div id="result" class="bg-gray-900 rounded-lg p-4 mb-6 hidden">
+            <h2 class="text-xl font-bold mb-2">Résultat</h2>
+            <div id="scan-status" class="p-3 rounded-lg text-center mb-4"></div>
+            <div id="ticket-details"></div>
         </div>
     </div>
 
     <script>
-        // État de l'application
-        const appState = {
-            scannedTickets: {},
-            scanHistory: [],
-            offlineMode: localStorage.getItem('offlineMode') === 'true' || false,
-            soundEnabled: localStorage.getItem('soundEnabled') !== 'false', // Activé par défaut
-            stats: {
-                total: 0,
-                valid: 0,
-                duplicate: 0
-            }
-        };
-
-        // Éléments DOM
-        const elements = {
-            settingsBtn: document.getElementById('settingsBtn'),
-            settingsPanel: document.getElementById('settingsPanel'),
-            closeSettingsBtn: document.getElementById('closeSettingsBtn'),
-            offlineMode: document.getElementById('offlineMode'),
-            soundOption: document.getElementById('soundOption'),
-            clearDataBtn: document.getElementById('clearDataBtn'),
-            exportDataBtn: document.getElementById('exportDataBtn'),
-            mainPanel: document.getElementById('mainPanel'),
-            lastScanResult: document.getElementById('lastScanResult'),
-            scanStatus: document.getElementById('scanStatus'),
-            ticketDetails: document.getElementById('ticketDetails'),
-            scannerOverlay: document.getElementById('scannerOverlay'),
-            scanHistoryBody: document.getElementById('scanHistoryBody'),
-            noScansMessage: document.getElementById('noScansMessage'),
-            clearHistoryBtn: document.getElementById('clearHistoryBtn'),
-            totalScanned: document.getElementById('totalScanned'),
-            validScans: document.getElementById('validScans'),
-            duplicateScans: document.getElementById('duplicateScans'),
-        };
-
-        // Charger les données sauvegardées
-        function loadSavedData() {
-            try {
-                const savedHistory = localStorage.getItem('scanHistory');
-                if (savedHistory) {
-                    appState.scanHistory = JSON.parse(savedHistory);
-                }
-                
-                const savedTickets = localStorage.getItem('scannedTickets');
-                if (savedTickets) {
-                    appState.scannedTickets = JSON.parse(savedTickets);
-                }
-                
-                const savedStats = localStorage.getItem('scanStats');
-                if (savedStats) {
-                    appState.stats = JSON.parse(savedStats);
-                }
-                
-                // Mettre à jour l'interface avec les données chargées
-                updateStatsUI();
-                updateScanHistoryUI();
-            } catch (error) {
-                console.error("Erreur lors du chargement des données sauvegardées:", error);
-                // Réinitialiser en cas d'erreur
-                localStorage.removeItem('scanHistory');
-                localStorage.removeItem('scannedTickets');
-                localStorage.removeItem('scanStats');
-            }
-        }
-
-        // Sauvegarder les données
-        function saveData() {
-            if (appState.offlineMode) {
-                localStorage.setItem('scanHistory', JSON.stringify(appState.scanHistory));
-                localStorage.setItem('scannedTickets', JSON.stringify(appState.scannedTickets));
-                localStorage.setItem('scanStats', JSON.stringify(appState.stats));
-            }
-        }
-
-        // Initialisation
-        function init() {
-            // Charger les options sauvegardées
-            elements.offlineMode.checked = appState.offlineMode;
-            elements.soundOption.value = appState.soundEnabled ? 'on' : 'off';
-            
-            // Charger les données sauvegardées
-            loadSavedData();
-            
-            // Initialiser le scanner
-            initQRScanner();
-            
-            // Gestionnaires d'événements
-            elements.settingsBtn.addEventListener('click', toggleSettingsPanel);
-            elements.closeSettingsBtn.addEventListener('click', toggleSettingsPanel);
-            
-            elements.offlineMode.addEventListener('change', function() {
-                appState.offlineMode = this.checked;
-                localStorage.setItem('offlineMode', appState.offlineMode);
-            });
-            
-            elements.soundOption.addEventListener('change', function() {
-                appState.soundEnabled = this.value === 'on';
-                localStorage.setItem('soundEnabled', appState.soundEnabled);
-            });
-            
-            elements.clearDataBtn.addEventListener('click', function() {
-                if (confirm("Êtes-vous sûr de vouloir effacer toutes les données ? Cette action est irréversible.")) {
-                    clearAllData();
-                }
-            });
-            
-            elements.exportDataBtn.addEventListener('click', exportDataToCSV);
-            
-            elements.clearHistoryBtn.addEventListener('click', function() {
-                if (confirm("Effacer l'historique des scans ?")) {
-                    clearScanHistory();
-                }
-            });
-        }
-
-        // Afficher/masquer le panneau des paramètres
-        function toggleSettingsPanel() {
-            elements.settingsPanel.classList.toggle('open');
-        }
-
-        // Effacer toutes les données
-        function clearAllData() {
-            appState.scannedTickets = {};
-            appState.scanHistory = [];
-            appState.stats = { total: 0, valid: 0, duplicate: 0 };
-            
-            localStorage.removeItem('scanHistory');
-            localStorage.removeItem('scannedTickets');
-            localStorage.removeItem('scanStats');
-            
-            updateStatsUI();
-            updateScanHistoryUI();
-        }
-
-        // Effacer uniquement l'historique des scans
-        function clearScanHistory() {
-            appState.scanHistory = [];
-            localStorage.removeItem('scanHistory');
-            updateScanHistoryUI();
-        }
-
-        // Exporter les données au format CSV
-        function exportDataToCSV() {
-            // Créer les données CSV
-            let csvContent = "data:text/csv;charset=utf-8,";
-            
-            // En-têtes
-            csvContent += "Date,Heure,ID,Statut\n";
-            
-            // Données
-            appState.scanHistory.forEach(entry => {
-                const row = [
-                    entry.date.split(' ')[0], // Date
-                    entry.date.split(' ')[1], // Heure
-                    entry.ticketId,
-                    entry.isValid ? "Valide" : (entry.status === "ALREADY_SCANNED" ? "Déjà scanné" : "Invalide")
-                ];
-                
-                csvContent += row.join(",") + "\n";
-            });
-            
-            // Créer un lien de téléchargement
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `tropitech_scans_${new Date().toISOString().slice(0,10)}.csv`);
-            document.body.appendChild(link);
-            
-            // Télécharger le fichier
-            link.click();
-            
-            // Nettoyer
-            document.body.removeChild(link);
-        }
-
-        // Initialiser le scanner de QR code
-        function initQRScanner() {
+        document.addEventListener('DOMContentLoaded', function() {
             const html5QrCode = new Html5Qrcode("qr-reader");
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            const resultElement = document.getElementById('result');
+            const scanStatusElement = document.getElementById('scan-status');
+            const ticketDetailsElement = document.getElementById('ticket-details');
             
+            // Configuration du scanner
+            const qrConfig = {
+                fps: 10,
+                qrbox: { width: 250, height: 250 },
+                formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ]
+            };
+            
+            // Cache des billets scannés
+            const scannedTickets = {};
+            
+            // Démarrer le scanner
             html5QrCode.start(
-                { facingMode: "environment" }, 
-                config, 
-                onQRCodeSuccess, 
-                onQRCodeError
+                { facingMode: "environment" },
+                qrConfig,
+                onQrCodeSuccess,
+                onQrCodeError
             ).catch(err => {
-                console.error("Erreur lors du démarrage de la caméra:", err);
-                alert("Impossible d'accéder à la caméra. Vérifiez les permissions.");
+                alert("Erreur d'accès à la caméra: " + err);
+                console.error("Erreur d'accès à la caméra:", err);
             });
-
-            function onQRCodeSuccess(decodedText) {
+            
+            // Fonction appelée quand un QR code est détecté
+            function onQrCodeSuccess(decodedText) {
                 console.log("QR Code détecté:", decodedText);
-                processQRCode(decodedText, html5QrCode);
+                processQrCode(decodedText);
             }
-
-            function onQRCodeError(error) {
-                // Ignorer les erreurs de décodage courantes
-                // console.error("Erreur de scan:", error);
+            
+            function onQrCodeError(err) {
+                // Ignorer les erreurs normales de scan
             }
-        }
-
-        // Traiter le QR code scanné
-        async function processQRCode(qrData, scanner) {
-            // Pause temporaire du scanner pour éviter les scans multiples
-            scanner.pause();
             
-            // Afficher un overlay vert pendant le scan
-            elements.scannerOverlay.style.display = 'block';
-            
-            try {
-                // Essayer d'extraire l'ID du billet du QR code
+            // Traiter le contenu du QR code
+            function processQrCode(qrData) {
+                // Extraire l'ID du billet
                 let ticketId = qrData;
-                
-                // Si le QR code est une URL, extraire l'ID du billet
                 if (qrData.includes('/ticket/')) {
                     const parts = qrData.split('/ticket/');
                     if (parts.length > 1) {
@@ -395,392 +89,77 @@
                     }
                 }
                 
-                // Vérifier si le QR code a déjà été scanné localement
-                const isAlreadyScanned = appState.scannedTickets[ticketId];
+                // Vérifier si déjà scanné
+                if (scannedTickets[ticketId]) {
+                    showResult(false, "DÉJÀ SCANNÉ", "Ce billet a déjà été scanné", scannedTickets[ticketId]);
+                    return;
+                }
                 
-                // Augmenter le compteur total des scans
-                appState.stats.total++;
+                // Vérifier format valide
+                const isValidFormat = ticketId.startsWith('pi_') || ticketId.match(/^[a-zA-Z0-9_]{10,}$/);
                 
-                let scanResult;
-                
-                if (isAlreadyScanned) {
-                    // Le billet a déjà été scanné
-                    scanResult = {
-                        isValid: false,
-                        status: 'ALREADY_SCANNED',
-                        message: 'Ce billet a déjà été scanné',
-                        ticket: appState.scannedTickets[ticketId]
+                if (isValidFormat) {
+                    // Simuler un billet valide
+                    const mockTicket = {
+                        id: ticketId,
+                        name: "Dupont",
+                        firstName: "Jean",
+                        email: `${ticketId.substring(0, 5)}@example.com`,
+                        category: "Early Bird",
+                        date: new Date().toLocaleString()
                     };
                     
-                    // Augmenter le compteur de doublons
-                    appState.stats.duplicate++;
+                    // Enregistrer comme scanné
+                    scannedTickets[ticketId] = mockTicket;
+                    
+                    showResult(true, "VALIDE", "Billet accepté", mockTicket);
                 } else {
-                    // Vérification du format du billet
-                    const isValidFormat = ticketId.startsWith('pi_') || ticketId.match(/^[a-zA-Z0-9_]{10,}$/);
-                    
-                    if (isValidFormat) {
-                        // Billet valide
-                        const now = new Date();
-                        const mockTicket = {
-                            paymentId: ticketId,
-                            name: getNameFromTicketId(ticketId),
-                            firstName: getFirstNameFromTicketId(ticketId),
-                            email: `${ticketId.substring(3, 8)}@example.com`,
-                            category: getRandomCategory(),
-                            createdAt: new Date(now.getTime() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-                            scanDate: now.toISOString()
-                        };
-                        
-                        scanResult = {
-                            isValid: true,
-                            status: 'VALID',
-                            message: 'Billet valide',
-                            ticket: mockTicket
-                        };
-                        
-                        // Enregistrer le billet comme scanné
-                        appState.scannedTickets[ticketId] = mockTicket;
-                        
-                        // Augmenter le compteur de billets valides
-                        appState.stats.valid++;
-                    } else {
-                        // Format invalide
-                        scanResult = {
-                            isValid: false,
-                            status: 'INVALID_FORMAT',
-                            message: 'Format de billet invalide',
-                            ticket: null
-                        };
-                    }
-                }
-                
-                // Afficher le résultat
-                displayScanResult(scanResult);
-                
-                // Ajouter à l'historique
-                addToScanHistory({
-                    ticketId,
-                    date: new Date().toLocaleString('fr-FR'),
-                    isValid: scanResult.isValid,
-                    status: scanResult.status
-                });
-                
-                // Mettre à jour les statistiques
-                updateStatsUI();
-                
-                // Sauvegarder les données
-                saveData();
-                
-            } catch (error) {
-                console.error('Erreur lors du traitement du QR code:', error);
-                
-                displayScanResult({
-                    isValid: false,
-                    status: 'ERROR',
-                    message: `Erreur: ${error.message}`,
-                    ticket: null
-                });
-            } finally {
-                // Retirer l'overlay après un court délai
-                setTimeout(() => {
-                    elements.scannerOverlay.style.display = 'none';
-                    scanner.resume();
-                }, 1500);
-            }
-        }
-
-        // Fonctions utilitaires pour générer des données simulées
-        function getNameFromTicketId(ticketId) {
-            // Utiliser une partie de l'ID pour générer un nom
-            const hash = ticketId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-            const names = ["Dupont", "Martin", "Bernard", "Thomas", "Robert", "Richard", "Dubois", "Laurent", "Simon", "Michel"];
-            return names[hash % names.length];
-        }
-        
-        function getFirstNameFromTicketId(ticketId) {
-            // Utiliser une partie de l'ID pour générer un prénom
-            const hash = ticketId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-            const firstNames = ["Jean", "Marie", "Pierre", "Sophie", "Emma", "Léa", "Lucas", "Hugo", "Louis", "Julie"];
-            return firstNames[(hash + 3) % firstNames.length];
-        }
-        
-        function getRandomCategory() {
-            const categories = ["earlyBird", "secondRelease", "thirdRelease"];
-            return categories[Math.floor(Math.random() * categories.length)];
-        }
-
-        // Afficher le résultat du scan
-        function displayScanResult(result) {
-            elements.lastScanResult.classList.remove('hidden');
-            
-            // Définir le statut
-            const scanStatus = elements.scanStatus;
-            scanStatus.innerHTML = '';
-            scanStatus.classList.remove('valid-badge', 'invalid-badge');
-            
-            if (result.isValid) {
-                scanStatus.classList.add('valid-badge');
-                scanStatus.innerHTML = `
-                    <div class="flex items-center justify-center">
-                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                        </svg>
-                        <span class="text-lg font-bold">VALIDE</span>
-                    </div>
-                    <p>${result.message || 'Billet accepté'}</p>
-                `;
-                
-                // Jouer un son de succès
-                if (appState.soundEnabled) {
-                    playSound('success');
-                }
-            } else {
-                scanStatus.classList.add('invalid-badge');
-                
-                let statusIcon, statusText;
-                
-                switch (result.status) {
-                    case 'ALREADY_SCANNED':
-                        statusIcon = '<svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
-                        statusText = 'DÉJÀ SCANNÉ';
-                        break;
-                    case 'INVALID_FORMAT':
-                        statusIcon = '<svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
-                        statusText = 'INVALIDE';
-                        break;
-                    default:
-                        statusIcon = '<svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
-                        statusText = 'REFUSÉ';
-                }
-                
-                scanStatus.innerHTML = `
-                    <div class="flex items-center justify-center">
-                        ${statusIcon}
-                        <span class="text-lg font-bold blink">${statusText}</span>
-                    </div>
-                    <p>${result.message || 'Billet invalide'}</p>
-                `;
-                
-                // Jouer un son d'erreur
-                if (appState.soundEnabled) {
-                    playSound('error');
+                    showResult(false, "INVALIDE", "Format de billet non reconnu", null);
                 }
             }
             
-            // Afficher les détails du billet
-            const ticketDetails = elements.ticketDetails;
-            ticketDetails.innerHTML = '';
-            
-            if (result.ticket) {
-                const ticket = result.ticket;
-                const formattedDate = new Date(ticket.createdAt).toLocaleDateString('fr-FR', { 
-                    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' 
-                });
+            // Afficher le résultat du scan
+            function showResult(isValid, status, message, ticket) {
+                resultElement.classList.remove('hidden');
                 
-                const categoryLabels = {
-                    'earlyBird': 'Early Bird',
-                    'secondRelease': 'Second Release',
-                    'thirdRelease': 'Third Release'
-                };
+                scanStatusElement.innerHTML = '';
+                scanStatusElement.className = isValid ? 'valid-badge' : 'invalid-badge';
                 
-                ticketDetails.innerHTML = `
-                    <div class="p-4 bg-gray-800 rounded-lg">
-                        <div class="mb-2">
-                            <span class="text-gray-400">Nom:</span>
-                            <span class="font-bold">${ticket.firstName} ${ticket.name}</span>
-                        </div>
-                        <div class="mb-2">
-                            <span class="text-gray-400">Email:</span>
-                            <span>${ticket.email}</span>
-                        </div>
-                        <div class="mb-2">
-                            <span class="text-gray-400">Catégorie:</span>
-                            <span class="font-bold">${categoryLabels[ticket.category] || ticket.category}</span>
-                        </div>
-                        <div>
-                            <span class="text-gray-400">Date d'achat:</span>
-                            <span>${formattedDate}</span>
-                        </div>
-                        <div class="mt-2">
-                            <span class="text-gray-400">ID:</span>
-                            <span class="text-xs">${ticket.paymentId || 'N/A'}</span>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-
-        // Ajouter un scan à l'historique
-        function addToScanHistory(scanEntry) {
-            appState.scanHistory.unshift(scanEntry);
-            updateScanHistoryUI();
-        }
-
-        // Mettre à jour l'interface de l'historique des scans
-        function updateScanHistoryUI() {
-            const historyBody = elements.scanHistoryBody;
-            
-            if (appState.scanHistory.length === 0) {
-                elements.noScansMessage.classList.remove('hidden');
-                historyBody.innerHTML = '';
-                return;
-            }
-            
-            elements.noScansMessage.classList.add('hidden');
-            historyBody.innerHTML = '';
-            
-            appState.scanHistory.forEach(entry => {
-                const row = document.createElement('tr');
-                
-                const statusClass = entry.isValid ? 'bg-green-800 text-white' : 'bg-red-800 text-white';
-                const statusText = entry.isValid ? 'VALIDE' : 
-                    (entry.status === 'ALREADY_SCANNED' ? 'DÉJÀ SCANNÉ' : 'INVALIDE');
-                
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap">${entry.date}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-xs">${entry.ticketId.substring(0, 10)}...</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 py-1 text-xs rounded-full ${statusClass}">${statusText}</span>
-                    </td>
+                scanStatusElement.innerHTML = `
+                    <div class="font-bold text-lg">${status}</div>
+                    <p>${message}</p>
                 `;
                 
-                historyBody.appendChild(row);
-            });
-        }
-
-        // Mettre à jour l'interface des statistiques
-        function updateStatsUI() {
-            elements.totalScanned.textContent = appState.stats.total;
-            elements.validScans.textContent = appState.stats.valid;
-            elements.duplicateScans.textContent = appState.stats.duplicate;
-        }
-
-        // Jouer un son
-        function playSound(type) {
-            try {
-                const audio = new Audio();
-                audio.src = type === 'success' 
-                    ? 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAABPAAMzMzMzMzMzMzMzMzMzMzMzMzMzOZmZmZmZmZmZmZmZmZmZmZmZmZmZnMzMzMzMzMzMzMzMzMzMzMzMzMzMz///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYkAAAAAAAA8MCFkc6QAAAAAAAAAAAAAAAAAAAAAP/jeMAAAAAAAAAAAABNYXRyb3NrYQAAAFhJbmZvAAAADwAAAAMAAAk7ADMzMzMzMzMzMzMzMzMzMzMzMzMzmZmZmZmZmZmZmZmZmZmZmZmZmZmZzMzMzMzMzMzMzMzMzMzMzMzMzMzM////////////////////////////////////////////AAAAAExhdmM1OC4xMwAAAAAAAAAAAAAkBgoAAAAAAAAJO7GILUkAAAAAAAAAAAAAAAAAQgD/+9DEAAAGkAN/tBAAL5QQreZ2gAUAJAG1a3XO3773S7WO1rGkMYcbvGCKnTsYQfvh/CAIAgCYg+D4fD8MCDweBAEJDjg8UGJZUuuEBDiw5UcJlEAhI8QDHlwxw+GJYbD4OCHHi6WAwQZHnAgkeDBiOFx/+Z7o5Id85UuSzx8fIJGlpYuNlf7///5QfKD8PKD5sMsDweBAEwfD4fh+GAQBAEgQBAEg+H4QPh5QBAEAQBAEAQAsAAAmYQGACBSIUH////////v//+gIBkCQ2IGQ2ICIMgIC//sCYMIYPhgTB8PmxPh+GD7//4Pm/8Hw/Dw/D62GBANyAoDgQcCAIAgCHgQBBgCHgQBM+oEAQ+D4fhgQBAEPgg+D4fmA+GBAEP/CAIOA+D1sQBoIABQAeAIKgcD4YwPiGAOAZh//t'
-                    : 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//uQxAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAADAAAGhgBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVWqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqr///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAGhqNHmHMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAALiDABAALiDAAQBAICA+H/DggCDAPh8Jg+GAIHBB///CEPwff8Hw+H4IAgCAIB8HwfD4fD4Pg+CAIAgCAIAgCAIBsN4fBAEHwfD4IAgCYPg+D4f/gQBAEAQDYEAQf/4Pg+H+oEA+H//D4f//CAIAgCAb//4QBANgQBA//4fBAEAQBAEA2G8Pg+CAIOCAIAgG///8Hx8Hwf//D4fD8EAQBAEAQBAEAQDYbw+CAIPg+HwQBAEwfB8Hw//AgCAIAgGwIAg//wfB8P9QIB8P/+Hw///CAIAgCAb//4QBANgQBA//4fBAEAQBAEA2G8Pg+CAIOCAIAgG///+2TEFMYkAEkAAAAAOAJAAAAAgAAA';
+                ticketDetailsElement.innerHTML = '';
+                if (ticket) {
+                    ticketDetailsElement.innerHTML = `
+                        <div class="p-3 bg-gray-800 rounded-lg">
+                            <div class="mb-2">
+                                <span class="text-gray-400">Nom:</span>
+                                <span class="font-bold">${ticket.firstName} ${ticket.name}</span>
+                            </div>
+                            <div class="mb-2">
+                                <span class="text-gray-400">Email:</span>
+                                <span>${ticket.email}</span>
+                            </div>
+                            <div class="mb-2">
+                                <span class="text-gray-400">Catégorie:</span>
+                                <span>${ticket.category}</span>
+                            </div>
+                            <div class="mb-2">
+                                <span class="text-gray-400">ID:</span>
+                                <span class="text-xs">${ticket.id}</span>
+                            </div>
+                        </div>
+                    `;
+                }
                 
+                // Jouer un son
+                const audio = new Audio(isValid ? 
+                    'data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV' : 
+                    'data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV');
                 audio.play();
-            } catch (e) {
-                console.log("Son non pris en charge ou désactivé");
             }
-        }
-
-        // Vérification d'un billet via son format
-        function isValidTicketFormat(ticketId) {
-            // Vérifier si l'ID a un format qui ressemble à un ID de paiement Stripe (pi_...)
-            // ou un format raisonnable pour un ID de billet (au moins 10 caractères alpha-numériques)
-            return ticketId.startsWith('pi_') || ticketId.match(/^[a-zA-Z0-9_]{10,}$/);
-        }
-
-        // Lecture d'un fichier JSON pour l'importation
-        function handleFileImport(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-                    
-                    // Vérifier la structure du fichier
-                    if (importedData.scanHistory && importedData.scannedTickets && importedData.stats) {
-                        // Fusionner les données
-                        appState.scanHistory = [...importedData.scanHistory, ...appState.scanHistory];
-                        appState.scannedTickets = {...importedData.scannedTickets, ...appState.scannedTickets};
-                        
-                        // Recalculer les statistiques
-                        appState.stats.total = importedData.stats.total + appState.stats.total;
-                        appState.stats.valid = importedData.stats.valid + appState.stats.valid;
-                        appState.stats.duplicate = importedData.stats.duplicate + appState.stats.duplicate;
-                        
-                        // Mettre à jour l'interface
-                        updateStatsUI();
-                        updateScanHistoryUI();
-                        
-                        // Sauvegarder les données
-                        saveData();
-                        
-                        alert("Importation réussie !");
-                    } else {
-                        throw new Error("Format de fichier invalide");
-                    }
-                } catch (error) {
-                    alert("Erreur lors de l'importation: " + error.message);
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        // Exportation des données au format JSON pour la sauvegarde
-        function exportDataToJSON() {
-            const dataToExport = {
-                scanHistory: appState.scanHistory,
-                scannedTickets: appState.scannedTickets,
-                stats: appState.stats,
-                exportDate: new Date().toISOString(),
-                version: "1.0.0"
-            };
-            
-            const dataStr = JSON.stringify(dataToExport, null, 2);
-            const dataUri = "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
-            
-            const exportFileName = `tropitech_scanner_data_${new Date().toISOString().slice(0,10)}.json`;
-            
-            const linkElement = document.createElement("a");
-            linkElement.setAttribute("href", dataUri);
-            linkElement.setAttribute("download", exportFileName);
-            document.body.appendChild(linkElement);
-            linkElement.click();
-            document.body.removeChild(linkElement);
-        }
-
-        // Initialisation de l'application
-        document.addEventListener('DOMContentLoaded', init);
-
-        // Fonctions pour le mockup du système
-        function createMockTicket(ticketId) {
-            // Générer des données simulées pour le billet
-            const now = new Date();
-            const mockCategories = ["earlyBird", "secondRelease", "thirdRelease"];
-            const mockNames = ["Dupont", "Martin", "Bernard", "Petit", "Dubois", "Moreau", "Laurent", "Simon", "Michel", "Lefebvre"];
-            const mockFirstNames = ["Jean", "Marie", "Pierre", "Sophie", "Paul", "Thomas", "Antoine", "Émilie", "Amélie", "Nicolas"];
-            
-            // Utiliser l'ID pour générer des valeurs déterministes
-            const hash = ticketId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-            
-            return {
-                paymentId: ticketId,
-                name: mockNames[hash % mockNames.length],
-                firstName: mockFirstNames[(hash + 3) % mockFirstNames.length],
-                email: `${ticketId.substring(3, 8).toLowerCase()}@example.com`,
-                category: mockCategories[hash % 3],
-                createdAt: new Date(now.getTime() - (hash % 30) * 24 * 60 * 60 * 1000).toISOString(),
-                scanDate: now.toISOString()
-            };
-        }
-    </script>
-
-    <!-- Fonctionnalités additionnelles -->
-    <footer class="container mx-auto p-4 text-center text-sm text-gray-500 mt-8">
-        <p>Scanner QR Code Tropitech - Version 1.0.0</p>
-        <button id="exportJsonBtn" class="text-blue-400 hover:underline text-xs mt-2">Exporter données (JSON)</button>
-        <div class="mt-2">
-            <label class="text-xs cursor-pointer hover:text-blue-400">
-                <span>Importer données</span>
-                <input type="file" id="importJsonFile" accept=".json" class="hidden">
-            </label>
-        </div>
-    </footer>
-
-    <script>
-        // Initialiser les fonctions additionnelles
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('exportJsonBtn').addEventListener('click', exportDataToJSON);
-            document.getElementById('importJsonFile').addEventListener('change', handleFileImport);
         });
     </script>
 </body>
