@@ -3,573 +3,574 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner de Billets Tropitech</title>
-    <!-- Bibliothèque pour QR code -->
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <title>Scanner de QR Code Tropitech</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.4/html5-qrcode.min.js"></script>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            margin: 0;
-            padding: 0;
             background-color: #121212;
             color: white;
         }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 15px;
-        }
-        header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        h1 {
-            color: #9333ea;
-            margin: 0;
-            padding: 10px 0;
-        }
-        #reader {
+        #qr-reader {
             width: 100%;
-            background: #1a1a1a;
-            border-radius: 10px;
-            overflow: hidden;
+            max-width: 500px;
+            margin: 0 auto;
         }
-        .result {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 5px;
-            text-align: center;
+        #qr-reader__scan_region {
+            background: black;
+        }
+        .scanner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 255, 0, 0.5);
             display: none;
         }
-        .success {
-            background-color: rgba(22, 163, 74, 0.2);
-            border: 1px solid #16a34a;
+        .container {
+            max-width: 600px;
         }
-        .error {
-            background-color: rgba(220, 38, 38, 0.2);
-            border: 1px solid #dc2626;
+        .valid-badge {
+            background-color: rgba(16, 185, 129, 0.7);
         }
-        .ticket-info {
-            margin-top: 15px;
-            padding: 15px;
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            text-align: left;
+        .invalid-badge {
+            background-color: rgba(239, 68, 68, 0.7);
         }
-        .ticket-info p {
-            margin: 5px 0;
+        .settings-panel {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
         }
-        button {
-            background-color: #9333ea;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 10px auto;
-            display: block;
-            width: 100%;
-            max-width: 300px;
+        .settings-panel.open {
+            max-height: 500px;
         }
-        #manual-entry {
-            margin-top: 20px;
-            text-align: center;
+        /* Personnalisation pour Tropitech */
+        .tropitech-bg {
+            background: linear-gradient(to bottom right, #1e1e1e, #2d1e2f);
         }
-        input {
-            padding: 10px;
-            width: 100%;
-            max-width: 300px;
-            margin: 0 auto 10px auto;
-            border-radius: 5px;
-            border: none;
-            background-color: #333;
-            color: white;
+        .loading-spinner {
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            border: 6px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            margin: 20px auto;
         }
-        .counter {
-            text-align: center;
-            margin: 20px 0;
-            font-size: 18px;
-            background-color: rgba(255, 255, 255, 0.1);
-            padding: 10px;
-            border-radius: 5px;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
-        #scan-count {
-            font-weight: bold;
-            color: #9333ea;
+        .blink {
+            animation: blink-animation 1s steps(5, start) infinite;
         }
-        #log-container {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: rgba(0, 0, 0, 0.3);
-            border-radius: 5px;
-            max-height: 150px;
-            overflow-y: auto;
-            font-family: monospace;
-            font-size: 12px;
-            color: #aaa;
-        }
-        #export-btn {
-            background-color: #16a34a;
-        }
-        .original-data {
-            margin-top: 10px;
-            color: #999;
-            font-size: 0.8em;
-        }
-        /* Animation */
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-        .pulse {
-            animation: pulse 0.5s;
+        @keyframes blink-animation {
+            to { visibility: hidden; }
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1>Tropitech - Scanner de Billets</h1>
-        </header>
-        
-        <div id="reader"></div>
-        
-        <div id="manual-entry">
-            <h3>Saisie manuelle</h3>
-            <input type="text" id="manual-id" placeholder="ID du billet (ex: pi_...)">
-            <button id="verify-manual">Vérifier</button>
+<body class="tropitech-bg min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-white">Scanner Tropitech</h1>
+            <button id="settingsBtn" class="px-4 py-2 bg-purple-800 rounded-lg hover:bg-purple-700 transition duration-300">
+                ⚙️ Paramètres
+            </button>
         </div>
-        
-        <div class="counter">
-            Billets scannés: <span id="scan-count">0</span>
-            <button id="export-btn" style="margin-top: 10px;">Exporter les données</button>
-        </div>
-        
-        <div class="result" id="result">
-            <h2 id="result-title">Résultat du scan</h2>
-            <p id="result-message"></p>
-            <div class="ticket-info">
-                <p id="fullname"></p>
-                <p id="email"></p>
-                <p id="category"></p>
-                <p id="payment-id"></p>
-                <div id="original-data" class="original-data"></div>
+
+        <div id="settingsPanel" class="settings-panel bg-gray-900 rounded-lg p-5 mb-6">
+            <h2 class="text-xl font-bold mb-4">Paramètres de connexion</h2>
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">URL de l'API</label>
+                <input type="text" id="apiUrlInput" placeholder="https://votre-api.com" 
+                       class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
             </div>
-            <button id="reset-button">Scanner un autre billet</button>
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Clé d'API (optionnelle)</label>
+                <input type="password" id="apiKeyInput" placeholder="Votre clé d'API" 
+                       class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button id="testConnectionBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    Tester la connexion
+                </button>
+                <button id="saveSettingsBtn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                    Enregistrer
+                </button>
+            </div>
+            <div id="connectionStatus" class="mt-3 text-center hidden"></div>
         </div>
-        
-        <div id="log-container"></div>
+
+        <div id="loginPanel" class="bg-gray-900 rounded-lg p-6 text-center">
+            <h2 class="text-xl font-bold mb-4">Connectez-vous pour commencer</h2>
+            <p class="mb-4">Veuillez configurer les paramètres de connexion à l'API pour pouvoir scanner des billets</p>
+            <button id="showSettingsBtn" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
+                Configurer l'API
+            </button>
+        </div>
+
+        <div id="mainPanel" class="hidden">
+            <div class="bg-gray-900 rounded-lg p-6 mb-6">
+                <div id="qr-reader"></div>
+                <div class="scanner-overlay" id="scannerOverlay"></div>
+                <div class="mt-4 text-center">
+                    <p class="text-gray-400">Placez le QR code dans le cadre pour scanner</p>
+                </div>
+            </div>
+
+            <div id="lastScanResult" class="bg-gray-900 rounded-lg p-6 hidden">
+                <h2 class="text-xl font-bold mb-4">Résultat du scan</h2>
+                <div id="scanStatus" class="mb-4 p-3 rounded-lg text-center"></div>
+                <div id="ticketDetails" class="space-y-3">
+                    <!-- Le contenu sera rempli dynamiquement -->
+                </div>
+            </div>
+
+            <div id="scanHistory" class="bg-gray-900 rounded-lg p-6 mt-6">
+                <h2 class="text-xl font-bold mb-4">Historique des scans (session actuelle)</h2>
+                <div class="overflow-hidden rounded-lg border border-gray-700">
+                    <table class="min-w-full divide-y divide-gray-700">
+                        <thead class="bg-gray-800">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Heure</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Nom</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scanHistoryBody" class="bg-gray-900 divide-y divide-gray-700">
+                            <!-- Les entrées seront ajoutées dynamiquement -->
+                        </tbody>
+                    </table>
+                </div>
+                <p id="noScansMessage" class="text-center py-4 text-gray-400">Aucun scan effectué</p>
+            </div>
+        </div>
     </div>
 
     <script>
-        // Éléments du DOM
-        const resultDiv = document.getElementById('result');
-        const resultTitle = document.getElementById('result-title');
-        const resultMessage = document.getElementById('result-message');
-        const fullnameElement = document.getElementById('fullname');
-        const emailElement = document.getElementById('email');
-        const categoryElement = document.getElementById('category');
-        const paymentIdElement = document.getElementById('payment-id');
-        const scanCountElement = document.getElementById('scan-count');
-        const resetButton = document.getElementById('reset-button');
-        const manualIdInput = document.getElementById('manual-id');
-        const verifyManualBtn = document.getElementById('verify-manual');
-        const exportBtn = document.getElementById('export-btn');
-        const logContainer = document.getElementById('log-container');
-        const originalDataDiv = document.getElementById('original-data');
+        // État de l'application
+        const appState = {
+            apiUrl: localStorage.getItem('apiUrl') || '',
+            apiKey: localStorage.getItem('apiKey') || '',
+            isConnected: false,
+            scannedTickets: {},
+            scanHistory: []
+        };
 
-        // Variables globales
-        let html5QrCode;
-        let scanCount = parseInt(localStorage.getItem('scan_count') || '0');
-        updateScanCount();
+        // Éléments DOM
+        const elements = {
+            settingsBtn: document.getElementById('settingsBtn'),
+            settingsPanel: document.getElementById('settingsPanel'),
+            apiUrlInput: document.getElementById('apiUrlInput'),
+            apiKeyInput: document.getElementById('apiKeyInput'),
+            saveSettingsBtn: document.getElementById('saveSettingsBtn'),
+            testConnectionBtn: document.getElementById('testConnectionBtn'),
+            connectionStatus: document.getElementById('connectionStatus'),
+            loginPanel: document.getElementById('loginPanel'),
+            showSettingsBtn: document.getElementById('showSettingsBtn'),
+            mainPanel: document.getElementById('mainPanel'),
+            lastScanResult: document.getElementById('lastScanResult'),
+            scanStatus: document.getElementById('scanStatus'),
+            ticketDetails: document.getElementById('ticketDetails'),
+            scannerOverlay: document.getElementById('scannerOverlay'),
+            scanHistoryBody: document.getElementById('scanHistoryBody'),
+            noScansMessage: document.getElementById('noScansMessage')
+        };
 
-        // Fonction pour extraire l'ID du ticket d'une URL ou d'un texte
-        function extractTicketId(text) {
-            // Logguer le texte original
-            log(`Texte scanné: ${text}`);
-            
-            let ticketId = text;
-            
-            // Si c'est une URL
-            if (text.includes('/ticket/')) {
-                const parts = text.split('/ticket/');
-                if (parts.length > 1) {
-                    ticketId = parts[1];
-                    log(`ID extrait de l'URL: ${ticketId}`);
-                }
+        // Initialisation
+        function init() {
+            // Charger les paramètres enregistrés
+            if (appState.apiUrl) {
+                elements.apiUrlInput.value = appState.apiUrl;
+                elements.apiKeyInput.value = appState.apiKey;
+                
+                // Tester automatiquement la connexion
+                testConnection().then(isConnected => {
+                    if (isConnected) {
+                        showMainPanel();
+                        initQRScanner();
+                    } else {
+                        showLoginPanel();
+                    }
+                });
+            } else {
+                showLoginPanel();
             }
-            
-            // Nettoyer l'ID (supprimer espaces, etc.)
-            ticketId = ticketId.trim();
-            
-            // Si l'ID commence par "pi_", c'est probablement valide
-            if (ticketId.startsWith('pi_')) {
-                log(`ID valide trouvé: ${ticketId}`);
-                return ticketId;
-            }
-            
-            // Chercher un pattern "pi_" suivi de caractères
-            const match = text.match(/pi_[a-zA-Z0-9]+/);
-            if (match) {
-                ticketId = match[0];
-                log(`ID trouvé avec regex: ${ticketId}`);
-                return ticketId;
-            }
-            
-            // Retourner ce qu'on a trouvé, même si pas idéal
-            log(`Pas d'ID Stripe clairement identifié, utilisation de: ${ticketId}`);
-            return ticketId;
+
+            // Gestionnaires d'événements
+            elements.settingsBtn.addEventListener('click', toggleSettingsPanel);
+            elements.showSettingsBtn.addEventListener('click', toggleSettingsPanel);
+            elements.saveSettingsBtn.addEventListener('click', saveSettings);
+            elements.testConnectionBtn.addEventListener('click', async () => {
+                await testConnection();
+            });
         }
 
-        // Initialisation du scanner
-        function initScanner() {
-            log("Initialisation du scanner...");
-            html5QrCode = new Html5Qrcode("reader");
+        // Afficher/masquer le panneau des paramètres
+        function toggleSettingsPanel() {
+            elements.settingsPanel.classList.toggle('open');
+        }
+
+        // Enregistrer les paramètres
+        async function saveSettings() {
+            const apiUrl = elements.apiUrlInput.value.trim();
+            const apiKey = elements.apiKeyInput.value.trim();
+            
+            if (!apiUrl) {
+                alert("L'URL de l'API est requise");
+                return;
+            }
+            
+            appState.apiUrl = apiUrl;
+            appState.apiKey = apiKey;
+            
+            localStorage.setItem('apiUrl', apiUrl);
+            localStorage.setItem('apiKey', apiKey);
+            
+            const isConnected = await testConnection();
+            
+            if (isConnected) {
+                toggleSettingsPanel();
+                showMainPanel();
+                initQRScanner();
+            }
+        }
+
+        // Tester la connexion à l'API
+        async function testConnection() {
+            const apiUrl = elements.apiUrlInput.value.trim() || appState.apiUrl;
+            const apiKey = elements.apiKeyInput.value.trim() || appState.apiKey;
+            
+            if (!apiUrl) {
+                return false;
+            }
+            
+            elements.connectionStatus.innerHTML = '<div class="loading-spinner"></div><p>Test de connexion en cours...</p>';
+            elements.connectionStatus.classList.remove('hidden');
+            
+            try {
+                const healthEndpoint = `${apiUrl}/health`;
+                const headers = {};
+                
+                if (apiKey) {
+                    headers['Authorization'] = `Bearer ${apiKey}`;
+                }
+                
+                const response = await fetch(healthEndpoint, { headers });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    elements.connectionStatus.innerHTML = '<div class="bg-green-800 rounded-lg p-3 mt-3">✅ Connexion réussie !</div>';
+                    appState.isConnected = true;
+                    return true;
+                } else {
+                    throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                console.error('Erreur de connexion:', error);
+                elements.connectionStatus.innerHTML = `<div class="bg-red-800 rounded-lg p-3 mt-3">❌ Erreur de connexion: ${error.message}</div>`;
+                appState.isConnected = false;
+                return false;
+            }
+        }
+
+        // Afficher le panneau principal
+        function showMainPanel() {
+            elements.loginPanel.classList.add('hidden');
+            elements.mainPanel.classList.remove('hidden');
+        }
+
+        // Afficher le panneau de connexion
+        function showLoginPanel() {
+            elements.loginPanel.classList.remove('hidden');
+            elements.mainPanel.classList.add('hidden');
+        }
+
+        // Initialiser le scanner de QR code
+        function initQRScanner() {
+            const html5QrCode = new Html5Qrcode("qr-reader");
             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
             
             html5QrCode.start(
                 { facingMode: "environment" }, 
                 config, 
-                onScanSuccess, 
-                onScanFailure
+                onQRCodeSuccess, 
+                onQRCodeError
             ).catch(err => {
-                console.error("Error starting scanner:", err);
-                log(`Erreur caméra: ${err}`);
-                alert("Erreur d'accès à la caméra. Utilisez la saisie manuelle.");
+                console.error("Erreur lors du démarrage de la caméra:", err);
+                alert("Impossible d'accéder à la caméra. Vérifiez les permissions.");
             });
+
+            function onQRCodeSuccess(decodedText) {
+                console.log("QR Code détecté:", decodedText);
+                processQRCode(decodedText, html5QrCode);
+            }
+
+            function onQRCodeError(error) {
+                // Ignorer les erreurs de décodage courantes
+                // console.error("Erreur de scan:", error);
+            }
         }
 
-        // Succès du scan
-        function onScanSuccess(decodedText, decodedResult) {
-            // Arrêter le scanner temporairement
-            html5QrCode.pause();
-            log(`QR code scanné avec succès!`);
+        // Traiter le QR code scanné
+        async function processQRCode(qrData, scanner) {
+            // Pause temporaire du scanner pour éviter les scans multiples
+            scanner.pause();
             
-            // Extraire et traiter l'ID du billet
-            const ticketId = extractTicketId(decodedText);
-            verifyTicket(ticketId, decodedText);
-        }
-
-        // Échec du scan
-        function onScanFailure(error) {
-            // Ignorer les erreurs de scan standard (pas de QR code détecté)
-        }
-
-        // Vérifier le billet
-        function verifyTicket(paymentId, originalText = null) {
-            log(`Vérification du billet: ${paymentId}`);
+            // Afficher un overlay vert pendant le scan
+            elements.scannerOverlay.style.display = 'block';
             
-            // Récupérer les billets déjà scannés
-            const ticketsStr = localStorage.getItem('scanned_tickets') || '{}';
-            const tickets = JSON.parse(ticketsStr);
-            
-            // Vérifier si le billet est déjà scanné
-            if (tickets[paymentId]) {
-                // Billet déjà scanné
-                log(`Billet déjà scanné: ${paymentId}`);
-                showResult(false, {
-                    message: 'Ce billet a déjà été scanné!',
-                    details: {
-                        paymentId: paymentId,
-                        name: tickets[paymentId].name,
-                        firstName: tickets[paymentId].firstName,
-                        email: tickets[paymentId].email,
-                        category: tickets[paymentId].category,
-                        scannedAt: new Date(tickets[paymentId].scannedAt).toLocaleString()
-                    },
-                    originalText: originalText
-                });
-            } else if (knownTickets[paymentId]) {
-                // Billet valide et non scanné
-                const ticket = {...knownTickets[paymentId]};
-                log(`Billet valide trouvé: ${paymentId}`);
-                
-                // Marquer comme scanné
-                ticket.scannedAt = new Date().toISOString();
-                tickets[paymentId] = ticket;
-                localStorage.setItem('scanned_tickets', JSON.stringify(tickets));
-                
-                // Incrémenter le compteur
-                scanCount++;
-                localStorage.setItem('scan_count', scanCount.toString());
-                updateScanCount();
-                
-                // Afficher le résultat
-                showResult(true, {
-                    message: 'Billet valide! Accès autorisé.',
-                    details: ticket,
-                    originalText: originalText
-                });
-            } else {
-                // Vérifier si c'est un billet "acceptable"
-                if (paymentId.startsWith('pi_') && !originalText && paymentId.length > 10) {
-                    // C'est probablement un billet valide, l'ajouter à notre base
-                    const newTicket = {
-                        paymentId: paymentId,
-                        name: "Invité",
-                        firstName: "Billet",
-                        email: "billet@tropitech.ch",
-                        category: "dynamique", // catégorie par défaut
-                        createdAt: new Date().toISOString()
-                    };
-                    
-                    // Ajouter aux billets connus
-                    knownTickets[paymentId] = newTicket;
-                    log(`Nouveau billet Stripe ajouté: ${paymentId}`);
-                    
-                    // Marquer comme scanné
-                    newTicket.scannedAt = new Date().toISOString();
-                    tickets[paymentId] = newTicket;
-                    localStorage.setItem('scanned_tickets', JSON.stringify(tickets));
-                    
-                    // Incrémenter le compteur
-                    scanCount++;
-                    localStorage.setItem('scan_count', scanCount.toString());
-                    updateScanCount();
-                    
-                    // Afficher le résultat
-                    showResult(true, {
-                        message: 'Billet reconnu par format! Accès autorisé.',
-                        details: newTicket,
-                        originalText: originalText
+            try {
+                // Vérifier si le QR code a déjà été scanné localement (double scan protection)
+                if (appState.scannedTickets[qrData]) {
+                    displayScanResult({
+                        isValid: false,
+                        status: 'ALREADY_SCANNED',
+                        message: 'Ce billet a déjà été scanné',
+                        ticket: appState.scannedTickets[qrData]
                     });
-                } else {
-                    // Billet vraiment inconnu
-                    log(`Billet inconnu: ${paymentId}`);
-                    showResult(false, {
-                        message: 'Billet inconnu ou invalide!',
-                        details: {
-                            paymentId: paymentId
-                        },
-                        originalText: originalText
-                    });
+                    return;
                 }
+                
+                // Essayer d'extraire l'ID du billet du QR code
+                let ticketId = qrData;
+                
+                // Si le QR code est une URL, extraire l'ID du billet
+                if (qrData.includes('/ticket/')) {
+                    const parts = qrData.split('/ticket/');
+                    if (parts.length > 1) {
+                        ticketId = parts[1];
+                    }
+                }
+                
+                // Vérifier le billet avec l'API
+                const response = await fetch(`${appState.apiUrl}/api/ticket/validate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(appState.apiKey ? { 'Authorization': `Bearer ${appState.apiKey}` } : {})
+                    },
+                    body: JSON.stringify({ ticketId, scanData: qrData })
+                });
+                
+                if (!response.ok) {
+                    // Simuler une réponse pour les tests si l'API n'existe pas encore
+                    if (response.status === 404) {
+                        console.log("API de validation non trouvée, simulation de réponse pour les tests");
+                        
+                        // Vérification manuelle du format de l'ID de billet (commence par "pi_")
+                        const isProbablyTicket = ticketId.startsWith('pi_') || ticketId.match(/^[a-zA-Z0-9_]{20,30}$/);
+                        
+                        // Simulation d'un billet valide ou invalide de manière aléatoire pour les tests
+                        const mockResponse = {
+                            isValid: isProbablyTicket,
+                            status: isProbablyTicket ? 'VALID' : 'INVALID_FORMAT',
+                            message: isProbablyTicket ? 'Billet valide (SIMULATION)' : 'Format de billet invalide (SIMULATION)',
+                            ticket: isProbablyTicket ? {
+                                paymentId: ticketId,
+                                name: 'Doe',
+                                firstName: 'John',
+                                email: 'john.doe@example.com',
+                                category: ['earlyBird', 'secondRelease', 'thirdRelease'][Math.floor(Math.random() * 3)],
+                                createdAt: new Date().toISOString()
+                            } : null
+                        };
+                        
+                        displayScanResult(mockResponse);
+                        
+                        // Enregistrer le billet comme scanné (pour la simulation)
+                        if (isProbablyTicket) {
+                            appState.scannedTickets[qrData] = mockResponse.ticket;
+                            addToScanHistory(mockResponse);
+                        }
+                        
+                        return;
+                    }
+                    
+                    throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                // Afficher le résultat du scan
+                displayScanResult(result);
+                
+                // Si le billet est valide, l'ajouter à la liste des billets scannés
+                if (result.isValid) {
+                    appState.scannedTickets[qrData] = result.ticket;
+                    addToScanHistory(result);
+                }
+                
+            } catch (error) {
+                console.error('Erreur lors de la validation du billet:', error);
+                
+                displayScanResult({
+                    isValid: false,
+                    status: 'ERROR',
+                    message: `Erreur: ${error.message}`,
+                    ticket: null
+                });
+            } finally {
+                // Retirer l'overlay après un court délai
+                setTimeout(() => {
+                    elements.scannerOverlay.style.display = 'none';
+                    scanner.resume();
+                }, 1500);
             }
         }
 
         // Afficher le résultat du scan
-        function showResult(isValid, data) {
-            resultDiv.className = 'result ' + (isValid ? 'success' : 'error');
-            resultDiv.classList.add('pulse');
-            setTimeout(() => resultDiv.classList.remove('pulse'), 500);
+        function displayScanResult(result) {
+            elements.lastScanResult.classList.remove('hidden');
             
-            resultTitle.textContent = isValid ? 'Billet valide!' : 'Billet invalide!';
-            resultMessage.textContent = data.message;
+            // Définir le statut
+            const scanStatus = elements.scanStatus;
+            scanStatus.innerHTML = '';
+            scanStatus.classList.remove('valid-badge', 'invalid-badge');
             
-            if (data.details) {
-                fullnameElement.textContent = data.details.firstName && data.details.name ? 
-                    `Nom: ${data.details.firstName} ${data.details.name}` : '';
+            if (result.isValid) {
+                scanStatus.classList.add('valid-badge');
+                scanStatus.innerHTML = `
+                    <div class="flex items-center justify-center">
+                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span class="text-lg font-bold">VALIDE</span>
+                    </div>
+                    <p>${result.message || 'Billet accepté'}</p>
+                `;
                 
-                emailElement.textContent = data.details.email ? 
-                    `Email: ${data.details.email}` : '';
+                // Jouer un son de succès
+                playSound('success');
+            } else {
+                scanStatus.classList.add('invalid-badge');
                 
-                const categories = {
-                    earlyBird: "Early Bird",
-                    secondRelease: "Second Release",
-                    thirdRelease: "Third Release",
-                    dynamique: "Billet Valide"
-                };
+                let statusIcon, statusText;
                 
-                categoryElement.textContent = data.details.category ? 
-                    `Catégorie: ${categories[data.details.category] || data.details.category}` : '';
-                
-                paymentIdElement.textContent = data.details.paymentId ? 
-                    `ID: ${data.details.paymentId}` : '';
-                
-                if (data.details.scannedAt && !isValid) {
-                    paymentIdElement.textContent += ` (Scanné le: ${data.details.scannedAt})`;
+                switch (result.status) {
+                    case 'ALREADY_SCANNED':
+                        statusIcon = '<svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+                        statusText = 'DÉJÀ SCANNÉ';
+                        break;
+                    case 'INVALID_FORMAT':
+                        statusIcon = '<svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
+                        statusText = 'INVALIDE';
+                        break;
+                    default:
+                        statusIcon = '<svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+                        statusText = 'REFUSÉ';
                 }
                 
-                // Afficher les données originales si disponibles
-                if (data.originalText) {
-                    originalDataDiv.textContent = `Données brutes: ${data.originalText}`;
-                    originalDataDiv.style.display = 'block';
-                } else {
-                    originalDataDiv.style.display = 'none';
-                }
+                scanStatus.innerHTML = `
+                    <div class="flex items-center justify-center">
+                        ${statusIcon}
+                        <span class="text-lg font-bold blink">${statusText}</span>
+                    </div>
+                    <p>${result.message || 'Billet invalide'}</p>
+                `;
+                
+                // Jouer un son d'erreur
+                playSound('error');
             }
             
-            resultDiv.style.display = 'block';
-        }
-
-        // Réinitialiser le scanner
-        function resetScanner() {
-            resultDiv.style.display = 'none';
+            // Afficher les détails du billet
+            const ticketDetails = elements.ticketDetails;
+            ticketDetails.innerHTML = '';
             
-            if (html5QrCode) {
-                html5QrCode.resume();
-            }
-        }
-        
-        // Mettre à jour le compteur
-        function updateScanCount() {
-            scanCountElement.textContent = scanCount.toString();
-        }
-        
-        // Logger les messages
-        function log(message) {
-            const timestamp = new Date().toLocaleTimeString();
-            const logEntry = document.createElement('div');
-            logEntry.textContent = `[${timestamp}] ${message}`;
-            logContainer.appendChild(logEntry);
-            
-            // Auto-scroll vers le bas
-            logContainer.scrollTop = logContainer.scrollHeight;
-            
-            // Limiter le nombre d'entrées
-            while (logContainer.children.length > 50) {
-                logContainer.removeChild(logContainer.firstChild);
-            }
-        }
-        
-        // Exporter les données
-        function exportData() {
-            try {
-                const scannedTickets = JSON.parse(localStorage.getItem('scanned_tickets') || '{}');
-                const count = Object.keys(scannedTickets).length;
-                
-                if (count === 0) {
-                    alert('Aucun billet scanné à exporter.');
-                    return;
-                }
-                
-                // Préparer les données CSV
-                let csv = 'ID,Nom,Prénom,Email,Catégorie,Date de scan\n';
-                
-                Object.values(scannedTickets).forEach(ticket => {
-                    const scanDate = new Date(ticket.scannedAt).toLocaleString();
-                    csv += `${ticket.paymentId},${ticket.name},${ticket.firstName},${ticket.email},${ticket.category},${scanDate}\n`;
+            if (result.ticket) {
+                const ticket = result.ticket;
+                const formattedDate = new Date(ticket.createdAt).toLocaleDateString('fr-FR', { 
+                    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' 
                 });
                 
-                // Créer un lien de téléchargement
-                const blob = new Blob([csv], { type: 'text/csv' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `tickets_scannés_${new Date().toISOString().split('T')[0]}.csv`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+                const categoryLabels = {
+                    'earlyBird': 'Early Bird',
+                    'secondRelease': 'Second Release',
+                    'thirdRelease': 'Third Release'
+                };
                 
-                log(`Données exportées: ${count} billets`);
-            } catch (error) {
-                console.error('Erreur d\'exportation:', error);
-                log(`Erreur d'exportation: ${error.message}`);
-                alert('Erreur lors de l\'exportation des données.');
+                ticketDetails.innerHTML = `
+                    <div class="p-4 bg-gray-800 rounded-lg">
+                        <div class="mb-2">
+                            <span class="text-gray-400">Nom:</span>
+                            <span class="font-bold">${ticket.firstName} ${ticket.name}</span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="text-gray-400">Email:</span>
+                            <span>${ticket.email}</span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="text-gray-400">Catégorie:</span>
+                            <span class="font-bold">${categoryLabels[ticket.category] || ticket.category}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-400">Date d'achat:</span>
+                            <span>${formattedDate}</span>
+                        </div>
+                        <div class="mt-2">
+                            <span class="text-gray-400">ID:</span>
+                            <span class="text-xs">${ticket.paymentId || 'N/A'}</span>
+                        </div>
+                    </div>
+                `;
             }
         }
 
-        // Gestionnaires d'événements
-        document.addEventListener('DOMContentLoaded', () => {
-            log("Application de scan démarrée");
-            initScanner();
-        });
-        
-        resetButton.addEventListener('click', resetScanner);
-        
-        verifyManualBtn.addEventListener('click', () => {
-            const input = manualIdInput.value.trim();
-            if (input) {
-                const paymentId = extractTicketId(input);
-                verifyTicket(paymentId);
-                manualIdInput.value = '';
-            } else {
-                alert("Veuillez entrer un ID de billet valide");
-            }
-        });
-        
-        exportBtn.addEventListener('click', exportData);
-
-        // Permettre de soumettre le formulaire avec Entrée
-        manualIdInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                verifyManualBtn.click();
-            }
-        });
-
-        // Base de données simulée - billets connus
-        // Ces billets seront reconnus automatiquement
-        const knownTickets = {
-            'pi_1NxYtQCYswbprtC1rbVKorhT': {
-                paymentId: 'pi_1NxYtQCYswbprtC1rbVKorhT',
-                name: 'Dupont',
-                firstName: 'Jean',
-                email: 'jean.dupont@example.com',
-                category: 'earlyBird',
-                createdAt: '2023-11-20T10:30:00Z'
-            },
-            'pi_1NxYuRCYswbprtC1aV9XpL8U': {
-                paymentId: 'pi_1NxYuRCYswbprtC1aV9XpL8U',
-                name: 'Martin',
-                firstName: 'Sophie',
-                email: 'sophie.martin@example.com',
-                category: 'secondRelease',
-                createdAt: '2023-11-21T14:15:00Z'
-            },
-            'pi_1NxYvSCYswbprtC1bTtRmPqV': {
-                paymentId: 'pi_1NxYvSCYswbprtC1bTtRmPqV',
-                name: 'Bernard',
-                firstName: 'Marie',
-                email: 'marie.bernard@example.com',
-                category: 'thirdRelease',
-                createdAt: '2023-11-22T09:45:00Z'
-            },
-            'pi_827648262': {
-                paymentId: 'pi_827648262',
-                name: 'Exemple',
-                firstName: 'Client',
-                email: 'client@example.com',
-                category: 'earlyBird',
-                createdAt: '2023-11-23T11:30:00Z'
-            },
-            // Vous pouvez ajouter d'autres billets ici
-        };
-        
-        // Charger les billets connus à partir du localStorage s'ils existent
-        const savedTickets = localStorage.getItem('known_tickets');
-        if (savedTickets) {
-            try {
-                const parsed = JSON.parse(savedTickets);
-                Object.assign(knownTickets, parsed);
-                log(`${Object.keys(parsed).length} billets chargés du stockage local`);
-            } catch (e) {
-                log(`Erreur lors du chargement des billets sauvegardés: ${e.message}`);
-            }
-        }
-        
-        // Fonction pour ajouter un billet manuellement (à exécuter dans la console)
-        window.addTicket = function(paymentId, name, firstName, email, category) {
-            knownTickets[paymentId] = {
-                paymentId,
-                name,
-                firstName,
-                email,
-                category,
-                createdAt: new Date().toISOString()
+        // Ajouter un scan à l'historique
+        function addToScanHistory(result) {
+            // Mettre à jour l'historique des scans
+            const ticket = result.ticket;
+            if (!ticket) return;
+            
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            const scanEntry = {
+                time: timeString,
+                ticket: ticket,
+                isValid: result.isValid,
+                status: result.status
             };
             
-            // Sauvegarder dans localStorage
-            localStorage.setItem('known_tickets', JSON.stringify(knownTickets));
-            console.log(`Billet ajouté: ${paymentId}`);
-            log(`Billet ajouté manuellement: ${paymentId}`);
+            appState.scanHistory.unshift(scanEntry);
+            updateScanHistoryUI();
+        }
+
+        // Mettre à jour l'interface de l'historique des scans
+        function updateScanHistoryUI() {
+            const historyBody = elements.scanHistoryBody;
             
-            return true;
-        };
-        
-        // Fonction pour réinitialiser tous les billets scannés
-        window.resetScannedTickets = function() {
-            if (confirm('Êtes-vous sûr de vouloir réinitialiser tous les billets scannés?')) {
-                localStorage.removeItem('scanned_tickets');
-                scanCount = 0;
-                localStorage.setItem('scan_count', '0');
-                updateScanCount();
-                log('Tous les billets scannés ont été réinitialisés');
-                alert('Réinitialisation terminée');
+            if (appState.scanHistory.length === 0) {
+                elements.noScansMessage.classList.remove('hidden');
+                return;
             }
-        };
-    </script>
-</body>
-</html>
+            
+            elements.noScansMessage.classList.add('hidden');
+            historyBody.innerHTML = '';
+            
+            appState.scanHistory.forEach(entry => {
+                const row = document.createElement('tr');
+                
+                const statusClass = entry.isValid ? 'bg-green-800 text-white' : 'bg-red-800 text-white';
+                const statusText = entry.isValid ? 'VALIDE' : 
+                    (entry.status === 'ALREADY_SCANNED' ? 'DÉJÀ SCANNÉ' : 'INVALIDE');
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">${entry.time}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${entry.ticket.firstName} ${entry.ticket.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 text-xs rounded-full ${statusClass}">${statusText}</span>
+                    </td>
+                `;
+                
+                historyBody.appendChild(row);
+            });
+        }
+
+        // Jouer un son
+        function playSound(type) {
+            try {
+                const audio = new Audio();
+                audio.src = type === 'success' 
+                    ? 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAABPAAMzMzMzMzMzMzMzMzMzMzMzMzMzOZmZmZmZmZmZmZmZmZmZmZmZmZmZnMzMzMzMzMzMzMzMzMzMzMzMzMzMz///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYkAAAAAAAA8MCFkc6QAAAAAAAAAAAAAAAAAAAAAP/jeMAAAAAAAAAAAABNYXRyb3NrYQAAAFhJbmZvAAAADwAAAAMAAAk7ADMzMzMzMzMzMzMzMzMzMzMzMzMzmZmZmZmZmZmZmZmZmZmZmZmZmZmZzMzMzMzMzMzMzMzMzMzMzMzMzMzM////////////////////////////////////////////AAAAAExhdmM1OC4xMwAAAAAAAAAAAAAkBgoAAAAAAAAJO7GILUkAAAAAAAAAAAAAAAAAQgD/+9DEAAAGkAN/tBAAL5QQreZ2gAUAJAG1a3XO3773S7WO1rGkMYcbvGCKnTsYQfvh/CAIAgCYg+D4fD8MCDweBAEJDjg8UGJZUuuEBDiw5UcJlEAhI8QDHlwxw+GJYbD4OCHHi6WAwQZHnAgkeDBiOFx/+Z7o5Id85UuSzx8fIJGlpYuNlf7///5QfKD8PKD5sMsDweBAEwfD4fh+GAQBAEgQBAEg+H4QPh5QBAEAQBAEAQAsAAAmYQGACBSIUH////////v//+gIBkCQ2IGQ2ICIMgIC//sCYMIYPhgTB8PmxPh+GD7//4Pm/8Hw/Dw/D62GBANyAoDgQcCAIAgCHgQBBgCHgQBM+oEAQ+D4fhgQBAEPgg+D4fmA+GBAEP/CAIOA+D1sQBoIABQAeAIKgcD4YwPiGAOAZh//t
