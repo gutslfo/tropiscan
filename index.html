@@ -111,16 +111,16 @@
             logDebug("ID extrait: " + ticketId);
 
             if (scannedTickets[ticketId]) {
-                showResult(false, "DÉJÀ SCANNÉ", "Ce billet a déjà été scanné", scannedTickets[ticketId]);
+                showResult(false, "DÉJÀ SCANNÉ", "Ce billet a déjà été scanné", scannedTickets[ticketId], ticketId);
                 return;
             }
 
             const ticket = knownTickets[ticketId];
             if (ticket) {
                 scannedTickets[ticketId] = ticket;
-                showResult(true, "VALIDE", "Billet valide", ticket);
+                showResult(true, "VALIDE", "Billet valide", ticket, ticketId);
             } else {
-                showResult(false, "INVALIDE", "Ce billet n'est pas reconnu", { id: ticketId });
+                showResult(false, "INVALIDE", "Ce billet n'est pas reconnu", {}, ticketId);
             }
         }
 
@@ -128,7 +128,7 @@
             logDebug("Aucun QR détecté ou lecture échouée");
         }
 
-        function showResult(isValid, status, message, ticket) {
+        function showResult(isValid, status, message, ticket, ticketId) {
             const resultEl = document.getElementById('result');
             const statusEl = document.getElementById('scan-status');
             const detailsEl = document.getElementById('ticket-details');
@@ -137,17 +137,13 @@
             statusEl.className = (isValid ? 'valid-badge' : 'invalid-badge') + ' p-3 rounded-lg text-center mb-4';
             statusEl.innerHTML = `<div class=\"font-bold text-lg\">${status}</div><p>${message}</p>`;
 
-            if (ticket.name) {
-                detailsEl.innerHTML = `
-                    <div class=\"p-3 bg-gray-800 rounded-lg\">
-                        <div><span class=\"text-gray-400\">Nom:</span> ${ticket.firstName} ${ticket.name}</div>
-                        <div><span class=\"text-gray-400\">Email:</span> ${ticket.email}</div>
-                        <div><span class=\"text-gray-400\">Catégorie:</span> ${ticket.category}</div>
-                        <div><span class=\"text-gray-400\">ID:</span> ${ticket.id || ticketId}</div>
-                    </div>`;
-            } else {
-                detailsEl.innerHTML = `<div class=\"p-3 bg-gray-800 rounded-lg\"><div><span class=\"text-gray-400\">ID:</span> ${ticket.id || ticketId}</div></div>`;
-            }
+            detailsEl.innerHTML = `
+                <div class=\"p-3 bg-gray-800 rounded-lg\">
+                    <div><span class=\"text-gray-400\">Nom:</span> ${ticket.firstName ? ticket.firstName + ' ' + ticket.name : '–'}</div>
+                    <div><span class=\"text-gray-400\">Email:</span> ${ticket.email || '–'}</div>
+                    <div><span class=\"text-gray-400\">Catégorie:</span> ${ticket.category || '–'}</div>
+                    <div><span class=\"text-gray-400\">ID:</span> ${ticketId}</div>
+                </div>`;
         }
 
         document.addEventListener("DOMContentLoaded", startScanner);
