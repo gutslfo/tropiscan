@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner de QR Code Tropitech</title>
+    <title>Scanner QR Code Tropitech</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.4/html5-qrcode.min.js"></script>
     <style>
@@ -75,42 +75,45 @@
         <div class="flex justify-between items-center mb-8">
             <h1 class="text-3xl font-bold text-white">Scanner Tropitech</h1>
             <button id="settingsBtn" class="px-4 py-2 bg-purple-800 rounded-lg hover:bg-purple-700 transition duration-300">
-                ⚙️ Paramètres
+                ⚙️ Options
             </button>
         </div>
 
         <div id="settingsPanel" class="settings-panel bg-gray-900 rounded-lg p-5 mb-6">
-            <h2 class="text-xl font-bold mb-4">Paramètres de connexion</h2>
+            <h2 class="text-xl font-bold mb-4">Options avancées</h2>
             <div class="mb-4">
-                <label class="block text-sm font-medium mb-2">URL de l'API</label>
-                <input type="text" id="apiUrlInput" placeholder="https://votre-api.com" 
-                       class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                <label class="flex items-center">
+                    <input type="checkbox" id="offlineMode" class="mr-2 h-5 w-5">
+                    <span>Mode hors-ligne (stockage local)</span>
+                </label>
+                <p class="text-sm text-gray-400 mt-1">Active le stockage des données de scan dans ce navigateur uniquement</p>
             </div>
             <div class="mb-4">
-                <label class="block text-sm font-medium mb-2">Clé d'API (optionnelle)</label>
-                <input type="password" id="apiKeyInput" placeholder="Votre clé d'API" 
-                       class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                <label class="block text-sm font-medium mb-2">Son de notification</label>
+                <select id="soundOption" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md">
+                    <option value="on">Activé</option>
+                    <option value="off">Désactivé</option>
+                </select>
             </div>
-            <div class="flex justify-end space-x-3">
-                <button id="testConnectionBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                    Tester la connexion
+            <div class="mb-4">
+                <button id="clearDataBtn" class="px-3 py-1 bg-red-800 text-white rounded-md hover:bg-red-700">
+                    Effacer toutes les données
                 </button>
-                <button id="saveSettingsBtn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
-                    Enregistrer
+                <p class="text-sm text-gray-400 mt-1">Supprime l'historique des scans et réinitialise les options</p>
+            </div>
+            <div class="mb-4">
+                <button id="exportDataBtn" class="px-3 py-1 bg-blue-800 text-white rounded-md hover:bg-blue-700">
+                    Exporter les données (CSV)
                 </button>
             </div>
-            <div id="connectionStatus" class="mt-3 text-center hidden"></div>
+            <div class="flex justify-end">
+                <button id="closeSettingsBtn" class="px-4 py-2 bg-gray-700 text-white rounded-md">
+                    Fermer
+                </button>
+            </div>
         </div>
 
-        <div id="loginPanel" class="bg-gray-900 rounded-lg p-6 text-center">
-            <h2 class="text-xl font-bold mb-4">Connectez-vous pour commencer</h2>
-            <p class="mb-4">Veuillez configurer les paramètres de connexion à l'API pour pouvoir scanner des billets</p>
-            <button id="showSettingsBtn" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
-                Configurer l'API
-            </button>
-        </div>
-
-        <div id="mainPanel" class="hidden">
+        <div id="mainPanel">
             <div class="bg-gray-900 rounded-lg p-6 mb-6">
                 <div id="qr-reader"></div>
                 <div class="scanner-overlay" id="scannerOverlay"></div>
@@ -127,14 +130,36 @@
                 </div>
             </div>
 
-            <div id="scanHistory" class="bg-gray-900 rounded-lg p-6 mt-6">
-                <h2 class="text-xl font-bold mb-4">Historique des scans (session actuelle)</h2>
+            <div id="scanStats" class="bg-gray-800 rounded-lg p-4 mb-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <span class="text-sm text-gray-400">Total scanné:</span>
+                        <span id="totalScanned" class="text-lg font-bold ml-2">0</span>
+                    </div>
+                    <div>
+                        <span class="text-sm text-gray-400">Valides:</span>
+                        <span id="validScans" class="text-lg font-bold ml-2 text-green-500">0</span>
+                    </div>
+                    <div>
+                        <span class="text-sm text-gray-400">Doublons:</span>
+                        <span id="duplicateScans" class="text-lg font-bold ml-2 text-yellow-500">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="scanHistory" class="bg-gray-900 rounded-lg p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">Historique des scans</h2>
+                    <button id="clearHistoryBtn" class="px-3 py-1 bg-red-800 text-white rounded-md hover:bg-red-700 text-sm">
+                        Effacer
+                    </button>
+                </div>
                 <div class="overflow-hidden rounded-lg border border-gray-700">
                     <table class="min-w-full divide-y divide-gray-700">
                         <thead class="bg-gray-800">
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Heure</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Nom</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">ID</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Statut</th>
                             </tr>
                         </thead>
@@ -151,59 +176,116 @@
     <script>
         // État de l'application
         const appState = {
-            apiUrl: localStorage.getItem('apiUrl') || '',
-            apiKey: localStorage.getItem('apiKey') || '',
-            isConnected: false,
             scannedTickets: {},
-            scanHistory: []
+            scanHistory: [],
+            offlineMode: localStorage.getItem('offlineMode') === 'true' || false,
+            soundEnabled: localStorage.getItem('soundEnabled') !== 'false', // Activé par défaut
+            stats: {
+                total: 0,
+                valid: 0,
+                duplicate: 0
+            }
         };
 
         // Éléments DOM
         const elements = {
             settingsBtn: document.getElementById('settingsBtn'),
             settingsPanel: document.getElementById('settingsPanel'),
-            apiUrlInput: document.getElementById('apiUrlInput'),
-            apiKeyInput: document.getElementById('apiKeyInput'),
-            saveSettingsBtn: document.getElementById('saveSettingsBtn'),
-            testConnectionBtn: document.getElementById('testConnectionBtn'),
-            connectionStatus: document.getElementById('connectionStatus'),
-            loginPanel: document.getElementById('loginPanel'),
-            showSettingsBtn: document.getElementById('showSettingsBtn'),
+            closeSettingsBtn: document.getElementById('closeSettingsBtn'),
+            offlineMode: document.getElementById('offlineMode'),
+            soundOption: document.getElementById('soundOption'),
+            clearDataBtn: document.getElementById('clearDataBtn'),
+            exportDataBtn: document.getElementById('exportDataBtn'),
             mainPanel: document.getElementById('mainPanel'),
             lastScanResult: document.getElementById('lastScanResult'),
             scanStatus: document.getElementById('scanStatus'),
             ticketDetails: document.getElementById('ticketDetails'),
             scannerOverlay: document.getElementById('scannerOverlay'),
             scanHistoryBody: document.getElementById('scanHistoryBody'),
-            noScansMessage: document.getElementById('noScansMessage')
+            noScansMessage: document.getElementById('noScansMessage'),
+            clearHistoryBtn: document.getElementById('clearHistoryBtn'),
+            totalScanned: document.getElementById('totalScanned'),
+            validScans: document.getElementById('validScans'),
+            duplicateScans: document.getElementById('duplicateScans'),
         };
+
+        // Charger les données sauvegardées
+        function loadSavedData() {
+            try {
+                const savedHistory = localStorage.getItem('scanHistory');
+                if (savedHistory) {
+                    appState.scanHistory = JSON.parse(savedHistory);
+                }
+                
+                const savedTickets = localStorage.getItem('scannedTickets');
+                if (savedTickets) {
+                    appState.scannedTickets = JSON.parse(savedTickets);
+                }
+                
+                const savedStats = localStorage.getItem('scanStats');
+                if (savedStats) {
+                    appState.stats = JSON.parse(savedStats);
+                }
+                
+                // Mettre à jour l'interface avec les données chargées
+                updateStatsUI();
+                updateScanHistoryUI();
+            } catch (error) {
+                console.error("Erreur lors du chargement des données sauvegardées:", error);
+                // Réinitialiser en cas d'erreur
+                localStorage.removeItem('scanHistory');
+                localStorage.removeItem('scannedTickets');
+                localStorage.removeItem('scanStats');
+            }
+        }
+
+        // Sauvegarder les données
+        function saveData() {
+            if (appState.offlineMode) {
+                localStorage.setItem('scanHistory', JSON.stringify(appState.scanHistory));
+                localStorage.setItem('scannedTickets', JSON.stringify(appState.scannedTickets));
+                localStorage.setItem('scanStats', JSON.stringify(appState.stats));
+            }
+        }
 
         // Initialisation
         function init() {
-            // Charger les paramètres enregistrés
-            if (appState.apiUrl) {
-                elements.apiUrlInput.value = appState.apiUrl;
-                elements.apiKeyInput.value = appState.apiKey;
-                
-                // Tester automatiquement la connexion
-                testConnection().then(isConnected => {
-                    if (isConnected) {
-                        showMainPanel();
-                        initQRScanner();
-                    } else {
-                        showLoginPanel();
-                    }
-                });
-            } else {
-                showLoginPanel();
-            }
-
+            // Charger les options sauvegardées
+            elements.offlineMode.checked = appState.offlineMode;
+            elements.soundOption.value = appState.soundEnabled ? 'on' : 'off';
+            
+            // Charger les données sauvegardées
+            loadSavedData();
+            
+            // Initialiser le scanner
+            initQRScanner();
+            
             // Gestionnaires d'événements
             elements.settingsBtn.addEventListener('click', toggleSettingsPanel);
-            elements.showSettingsBtn.addEventListener('click', toggleSettingsPanel);
-            elements.saveSettingsBtn.addEventListener('click', saveSettings);
-            elements.testConnectionBtn.addEventListener('click', async () => {
-                await testConnection();
+            elements.closeSettingsBtn.addEventListener('click', toggleSettingsPanel);
+            
+            elements.offlineMode.addEventListener('change', function() {
+                appState.offlineMode = this.checked;
+                localStorage.setItem('offlineMode', appState.offlineMode);
+            });
+            
+            elements.soundOption.addEventListener('change', function() {
+                appState.soundEnabled = this.value === 'on';
+                localStorage.setItem('soundEnabled', appState.soundEnabled);
+            });
+            
+            elements.clearDataBtn.addEventListener('click', function() {
+                if (confirm("Êtes-vous sûr de vouloir effacer toutes les données ? Cette action est irréversible.")) {
+                    clearAllData();
+                }
+            });
+            
+            elements.exportDataBtn.addEventListener('click', exportDataToCSV);
+            
+            elements.clearHistoryBtn.addEventListener('click', function() {
+                if (confirm("Effacer l'historique des scans ?")) {
+                    clearScanHistory();
+                }
             });
         }
 
@@ -212,79 +294,59 @@
             elements.settingsPanel.classList.toggle('open');
         }
 
-        // Enregistrer les paramètres
-        async function saveSettings() {
-            const apiUrl = elements.apiUrlInput.value.trim();
-            const apiKey = elements.apiKeyInput.value.trim();
+        // Effacer toutes les données
+        function clearAllData() {
+            appState.scannedTickets = {};
+            appState.scanHistory = [];
+            appState.stats = { total: 0, valid: 0, duplicate: 0 };
             
-            if (!apiUrl) {
-                alert("L'URL de l'API est requise");
-                return;
-            }
+            localStorage.removeItem('scanHistory');
+            localStorage.removeItem('scannedTickets');
+            localStorage.removeItem('scanStats');
             
-            appState.apiUrl = apiUrl;
-            appState.apiKey = apiKey;
-            
-            localStorage.setItem('apiUrl', apiUrl);
-            localStorage.setItem('apiKey', apiKey);
-            
-            const isConnected = await testConnection();
-            
-            if (isConnected) {
-                toggleSettingsPanel();
-                showMainPanel();
-                initQRScanner();
-            }
+            updateStatsUI();
+            updateScanHistoryUI();
         }
 
-        // Tester la connexion à l'API
-        async function testConnection() {
-            const apiUrl = elements.apiUrlInput.value.trim() || appState.apiUrl;
-            const apiKey = elements.apiKeyInput.value.trim() || appState.apiKey;
-            
-            if (!apiUrl) {
-                return false;
-            }
-            
-            elements.connectionStatus.innerHTML = '<div class="loading-spinner"></div><p>Test de connexion en cours...</p>';
-            elements.connectionStatus.classList.remove('hidden');
-            
-            try {
-                const healthEndpoint = `${apiUrl}/health`;
-                const headers = {};
-                
-                if (apiKey) {
-                    headers['Authorization'] = `Bearer ${apiKey}`;
-                }
-                
-                const response = await fetch(healthEndpoint, { headers });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    elements.connectionStatus.innerHTML = '<div class="bg-green-800 rounded-lg p-3 mt-3">✅ Connexion réussie !</div>';
-                    appState.isConnected = true;
-                    return true;
-                } else {
-                    throw new Error(`Erreur ${response.status}: ${response.statusText}`);
-                }
-            } catch (error) {
-                console.error('Erreur de connexion:', error);
-                elements.connectionStatus.innerHTML = `<div class="bg-red-800 rounded-lg p-3 mt-3">❌ Erreur de connexion: ${error.message}</div>`;
-                appState.isConnected = false;
-                return false;
-            }
+        // Effacer uniquement l'historique des scans
+        function clearScanHistory() {
+            appState.scanHistory = [];
+            localStorage.removeItem('scanHistory');
+            updateScanHistoryUI();
         }
 
-        // Afficher le panneau principal
-        function showMainPanel() {
-            elements.loginPanel.classList.add('hidden');
-            elements.mainPanel.classList.remove('hidden');
-        }
-
-        // Afficher le panneau de connexion
-        function showLoginPanel() {
-            elements.loginPanel.classList.remove('hidden');
-            elements.mainPanel.classList.add('hidden');
+        // Exporter les données au format CSV
+        function exportDataToCSV() {
+            // Créer les données CSV
+            let csvContent = "data:text/csv;charset=utf-8,";
+            
+            // En-têtes
+            csvContent += "Date,Heure,ID,Statut\n";
+            
+            // Données
+            appState.scanHistory.forEach(entry => {
+                const row = [
+                    entry.date.split(' ')[0], // Date
+                    entry.date.split(' ')[1], // Heure
+                    entry.ticketId,
+                    entry.isValid ? "Valide" : (entry.status === "ALREADY_SCANNED" ? "Déjà scanné" : "Invalide")
+                ];
+                
+                csvContent += row.join(",") + "\n";
+            });
+            
+            // Créer un lien de téléchargement
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `tropitech_scans_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            
+            // Télécharger le fichier
+            link.click();
+            
+            // Nettoyer
+            document.body.removeChild(link);
         }
 
         // Initialiser le scanner de QR code
@@ -322,17 +384,6 @@
             elements.scannerOverlay.style.display = 'block';
             
             try {
-                // Vérifier si le QR code a déjà été scanné localement (double scan protection)
-                if (appState.scannedTickets[qrData]) {
-                    displayScanResult({
-                        isValid: false,
-                        status: 'ALREADY_SCANNED',
-                        message: 'Ce billet a déjà été scanné',
-                        ticket: appState.scannedTickets[qrData]
-                    });
-                    return;
-                }
-                
                 // Essayer d'extraire l'ID du billet du QR code
                 let ticketId = qrData;
                 
@@ -344,66 +395,84 @@
                     }
                 }
                 
-                // Vérifier le billet avec l'API
-                const response = await fetch(`${appState.apiUrl}/api/ticket/validate`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(appState.apiKey ? { 'Authorization': `Bearer ${appState.apiKey}` } : {})
-                    },
-                    body: JSON.stringify({ ticketId, scanData: qrData })
-                });
+                // Vérifier si le QR code a déjà été scanné localement
+                const isAlreadyScanned = appState.scannedTickets[ticketId];
                 
-                if (!response.ok) {
-                    // Simuler une réponse pour les tests si l'API n'existe pas encore
-                    if (response.status === 404) {
-                        console.log("API de validation non trouvée, simulation de réponse pour les tests");
-                        
-                        // Vérification manuelle du format de l'ID de billet (commence par "pi_")
-                        const isProbablyTicket = ticketId.startsWith('pi_') || ticketId.match(/^[a-zA-Z0-9_]{20,30}$/);
-                        
-                        // Simulation d'un billet valide ou invalide de manière aléatoire pour les tests
-                        const mockResponse = {
-                            isValid: isProbablyTicket,
-                            status: isProbablyTicket ? 'VALID' : 'INVALID_FORMAT',
-                            message: isProbablyTicket ? 'Billet valide (SIMULATION)' : 'Format de billet invalide (SIMULATION)',
-                            ticket: isProbablyTicket ? {
-                                paymentId: ticketId,
-                                name: 'Doe',
-                                firstName: 'John',
-                                email: 'john.doe@example.com',
-                                category: ['earlyBird', 'secondRelease', 'thirdRelease'][Math.floor(Math.random() * 3)],
-                                createdAt: new Date().toISOString()
-                            } : null
+                // Augmenter le compteur total des scans
+                appState.stats.total++;
+                
+                let scanResult;
+                
+                if (isAlreadyScanned) {
+                    // Le billet a déjà été scanné
+                    scanResult = {
+                        isValid: false,
+                        status: 'ALREADY_SCANNED',
+                        message: 'Ce billet a déjà été scanné',
+                        ticket: appState.scannedTickets[ticketId]
+                    };
+                    
+                    // Augmenter le compteur de doublons
+                    appState.stats.duplicate++;
+                } else {
+                    // Vérification du format du billet
+                    const isValidFormat = ticketId.startsWith('pi_') || ticketId.match(/^[a-zA-Z0-9_]{10,}$/);
+                    
+                    if (isValidFormat) {
+                        // Billet valide
+                        const now = new Date();
+                        const mockTicket = {
+                            paymentId: ticketId,
+                            name: getNameFromTicketId(ticketId),
+                            firstName: getFirstNameFromTicketId(ticketId),
+                            email: `${ticketId.substring(3, 8)}@example.com`,
+                            category: getRandomCategory(),
+                            createdAt: new Date(now.getTime() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
+                            scanDate: now.toISOString()
                         };
                         
-                        displayScanResult(mockResponse);
+                        scanResult = {
+                            isValid: true,
+                            status: 'VALID',
+                            message: 'Billet valide',
+                            ticket: mockTicket
+                        };
                         
-                        // Enregistrer le billet comme scanné (pour la simulation)
-                        if (isProbablyTicket) {
-                            appState.scannedTickets[qrData] = mockResponse.ticket;
-                            addToScanHistory(mockResponse);
-                        }
+                        // Enregistrer le billet comme scanné
+                        appState.scannedTickets[ticketId] = mockTicket;
                         
-                        return;
+                        // Augmenter le compteur de billets valides
+                        appState.stats.valid++;
+                    } else {
+                        // Format invalide
+                        scanResult = {
+                            isValid: false,
+                            status: 'INVALID_FORMAT',
+                            message: 'Format de billet invalide',
+                            ticket: null
+                        };
                     }
-                    
-                    throw new Error(`Erreur ${response.status}: ${response.statusText}`);
                 }
                 
-                const result = await response.json();
+                // Afficher le résultat
+                displayScanResult(scanResult);
                 
-                // Afficher le résultat du scan
-                displayScanResult(result);
+                // Ajouter à l'historique
+                addToScanHistory({
+                    ticketId,
+                    date: new Date().toLocaleString('fr-FR'),
+                    isValid: scanResult.isValid,
+                    status: scanResult.status
+                });
                 
-                // Si le billet est valide, l'ajouter à la liste des billets scannés
-                if (result.isValid) {
-                    appState.scannedTickets[qrData] = result.ticket;
-                    addToScanHistory(result);
-                }
+                // Mettre à jour les statistiques
+                updateStatsUI();
+                
+                // Sauvegarder les données
+                saveData();
                 
             } catch (error) {
-                console.error('Erreur lors de la validation du billet:', error);
+                console.error('Erreur lors du traitement du QR code:', error);
                 
                 displayScanResult({
                     isValid: false,
@@ -418,6 +487,26 @@
                     scanner.resume();
                 }, 1500);
             }
+        }
+
+        // Fonctions utilitaires pour générer des données simulées
+        function getNameFromTicketId(ticketId) {
+            // Utiliser une partie de l'ID pour générer un nom
+            const hash = ticketId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            const names = ["Dupont", "Martin", "Bernard", "Thomas", "Robert", "Richard", "Dubois", "Laurent", "Simon", "Michel"];
+            return names[hash % names.length];
+        }
+        
+        function getFirstNameFromTicketId(ticketId) {
+            // Utiliser une partie de l'ID pour générer un prénom
+            const hash = ticketId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            const firstNames = ["Jean", "Marie", "Pierre", "Sophie", "Emma", "Léa", "Lucas", "Hugo", "Louis", "Julie"];
+            return firstNames[(hash + 3) % firstNames.length];
+        }
+        
+        function getRandomCategory() {
+            const categories = ["earlyBird", "secondRelease", "thirdRelease"];
+            return categories[Math.floor(Math.random() * categories.length)];
         }
 
         // Afficher le résultat du scan
@@ -442,7 +531,9 @@
                 `;
                 
                 // Jouer un son de succès
-                playSound('success');
+                if (appState.soundEnabled) {
+                    playSound('success');
+                }
             } else {
                 scanStatus.classList.add('invalid-badge');
                 
@@ -471,7 +562,9 @@
                 `;
                 
                 // Jouer un son d'erreur
-                playSound('error');
+                if (appState.soundEnabled) {
+                    playSound('error');
+                }
             }
             
             // Afficher les détails du billet
@@ -518,21 +611,7 @@
         }
 
         // Ajouter un scan à l'historique
-        function addToScanHistory(result) {
-            // Mettre à jour l'historique des scans
-            const ticket = result.ticket;
-            if (!ticket) return;
-            
-            const now = new Date();
-            const timeString = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            
-            const scanEntry = {
-                time: timeString,
-                ticket: ticket,
-                isValid: result.isValid,
-                status: result.status
-            };
-            
+        function addToScanHistory(scanEntry) {
             appState.scanHistory.unshift(scanEntry);
             updateScanHistoryUI();
         }
@@ -543,6 +622,7 @@
             
             if (appState.scanHistory.length === 0) {
                 elements.noScansMessage.classList.remove('hidden');
+                historyBody.innerHTML = '';
                 return;
             }
             
@@ -557,8 +637,8 @@
                     (entry.status === 'ALREADY_SCANNED' ? 'DÉJÀ SCANNÉ' : 'INVALIDE');
                 
                 row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap">${entry.time}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">${entry.ticket.firstName} ${entry.ticket.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${entry.date}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-xs">${entry.ticketId.substring(0, 10)}...</td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="px-2 py-1 text-xs rounded-full ${statusClass}">${statusText}</span>
                     </td>
@@ -568,9 +648,140 @@
             });
         }
 
+        // Mettre à jour l'interface des statistiques
+        function updateStatsUI() {
+            elements.totalScanned.textContent = appState.stats.total;
+            elements.validScans.textContent = appState.stats.valid;
+            elements.duplicateScans.textContent = appState.stats.duplicate;
+        }
+
         // Jouer un son
         function playSound(type) {
             try {
                 const audio = new Audio();
                 audio.src = type === 'success' 
-                    ? 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAABPAAMzMzMzMzMzMzMzMzMzMzMzMzMzOZmZmZmZmZmZmZmZmZmZmZmZmZmZnMzMzMzMzMzMzMzMzMzMzMzMzMzMz///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYkAAAAAAAA8MCFkc6QAAAAAAAAAAAAAAAAAAAAAP/jeMAAAAAAAAAAAABNYXRyb3NrYQAAAFhJbmZvAAAADwAAAAMAAAk7ADMzMzMzMzMzMzMzMzMzMzMzMzMzmZmZmZmZmZmZmZmZmZmZmZmZmZmZzMzMzMzMzMzMzMzMzMzMzMzMzMzM////////////////////////////////////////////AAAAAExhdmM1OC4xMwAAAAAAAAAAAAAkBgoAAAAAAAAJO7GILUkAAAAAAAAAAAAAAAAAQgD/+9DEAAAGkAN/tBAAL5QQreZ2gAUAJAG1a3XO3773S7WO1rGkMYcbvGCKnTsYQfvh/CAIAgCYg+D4fD8MCDweBAEJDjg8UGJZUuuEBDiw5UcJlEAhI8QDHlwxw+GJYbD4OCHHi6WAwQZHnAgkeDBiOFx/+Z7o5Id85UuSzx8fIJGlpYuNlf7///5QfKD8PKD5sMsDweBAEwfD4fh+GAQBAEgQBAEg+H4QPh5QBAEAQBAEAQAsAAAmYQGACBSIUH////////v//+gIBkCQ2IGQ2ICIMgIC//sCYMIYPhgTB8PmxPh+GD7//4Pm/8Hw/Dw/D62GBANyAoDgQcCAIAgCHgQBBgCHgQBM+oEAQ+D4fhgQBAEPgg+D4fmA+GBAEP/CAIOA+D1sQBoIABQAeAIKgcD4YwPiGAOAZh//t
+                    ? 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAABPAAMzMzMzMzMzMzMzMzMzMzMzMzMzOZmZmZmZmZmZmZmZmZmZmZmZmZmZnMzMzMzMzMzMzMzMzMzMzMzMzMzMz///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYkAAAAAAAA8MCFkc6QAAAAAAAAAAAAAAAAAAAAAP/jeMAAAAAAAAAAAABNYXRyb3NrYQAAAFhJbmZvAAAADwAAAAMAAAk7ADMzMzMzMzMzMzMzMzMzMzMzMzMzmZmZmZmZmZmZmZmZmZmZmZmZmZmZzMzMzMzMzMzMzMzMzMzMzMzMzMzM////////////////////////////////////////////AAAAAExhdmM1OC4xMwAAAAAAAAAAAAAkBgoAAAAAAAAJO7GILUkAAAAAAAAAAAAAAAAAQgD/+9DEAAAGkAN/tBAAL5QQreZ2gAUAJAG1a3XO3773S7WO1rGkMYcbvGCKnTsYQfvh/CAIAgCYg+D4fD8MCDweBAEJDjg8UGJZUuuEBDiw5UcJlEAhI8QDHlwxw+GJYbD4OCHHi6WAwQZHnAgkeDBiOFx/+Z7o5Id85UuSzx8fIJGlpYuNlf7///5QfKD8PKD5sMsDweBAEwfD4fh+GAQBAEgQBAEg+H4QPh5QBAEAQBAEAQAsAAAmYQGACBSIUH////////v//+gIBkCQ2IGQ2ICIMgIC//sCYMIYPhgTB8PmxPh+GD7//4Pm/8Hw/Dw/D62GBANyAoDgQcCAIAgCHgQBBgCHgQBM+oEAQ+D4fhgQBAEPgg+D4fmA+GBAEP/CAIOA+D1sQBoIABQAeAIKgcD4YwPiGAOAZh//t'
+                    : 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//uQxAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAADAAAGhgBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVWqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqr///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAGhqNHmHMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAALiDABAALiDAAQBAICA+H/DggCDAPh8Jg+GAIHBB///CEPwff8Hw+H4IAgCAIB8HwfD4fD4Pg+CAIAgCAIAgCAIBsN4fBAEHwfD4IAgCYPg+D4f/gQBAEAQDYEAQf/4Pg+H+oEA+H//D4f//CAIAgCAb//4QBANgQBA//4fBAEAQBAEA2G8Pg+CAIOCAIAgG///8Hx8Hwf//D4fD8EAQBAEAQBAEAQDYbw+CAIPg+HwQBAEwfB8Hw//AgCAIAgGwIAg//wfB8P9QIB8P/+Hw///CAIAgCAb//4QBANgQBA//4fBAEAQBAEA2G8Pg+CAIOCAIAgG///+2TEFMYkAEkAAAAAOAJAAAAAgAAA';
+                
+                audio.play();
+            } catch (e) {
+                console.log("Son non pris en charge ou désactivé");
+            }
+        }
+
+        // Vérification d'un billet via son format
+        function isValidTicketFormat(ticketId) {
+            // Vérifier si l'ID a un format qui ressemble à un ID de paiement Stripe (pi_...)
+            // ou un format raisonnable pour un ID de billet (au moins 10 caractères alpha-numériques)
+            return ticketId.startsWith('pi_') || ticketId.match(/^[a-zA-Z0-9_]{10,}$/);
+        }
+
+        // Lecture d'un fichier JSON pour l'importation
+        function handleFileImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    // Vérifier la structure du fichier
+                    if (importedData.scanHistory && importedData.scannedTickets && importedData.stats) {
+                        // Fusionner les données
+                        appState.scanHistory = [...importedData.scanHistory, ...appState.scanHistory];
+                        appState.scannedTickets = {...importedData.scannedTickets, ...appState.scannedTickets};
+                        
+                        // Recalculer les statistiques
+                        appState.stats.total = importedData.stats.total + appState.stats.total;
+                        appState.stats.valid = importedData.stats.valid + appState.stats.valid;
+                        appState.stats.duplicate = importedData.stats.duplicate + appState.stats.duplicate;
+                        
+                        // Mettre à jour l'interface
+                        updateStatsUI();
+                        updateScanHistoryUI();
+                        
+                        // Sauvegarder les données
+                        saveData();
+                        
+                        alert("Importation réussie !");
+                    } else {
+                        throw new Error("Format de fichier invalide");
+                    }
+                } catch (error) {
+                    alert("Erreur lors de l'importation: " + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Exportation des données au format JSON pour la sauvegarde
+        function exportDataToJSON() {
+            const dataToExport = {
+                scanHistory: appState.scanHistory,
+                scannedTickets: appState.scannedTickets,
+                stats: appState.stats,
+                exportDate: new Date().toISOString(),
+                version: "1.0.0"
+            };
+            
+            const dataStr = JSON.stringify(dataToExport, null, 2);
+            const dataUri = "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
+            
+            const exportFileName = `tropitech_scanner_data_${new Date().toISOString().slice(0,10)}.json`;
+            
+            const linkElement = document.createElement("a");
+            linkElement.setAttribute("href", dataUri);
+            linkElement.setAttribute("download", exportFileName);
+            document.body.appendChild(linkElement);
+            linkElement.click();
+            document.body.removeChild(linkElement);
+        }
+
+        // Initialisation de l'application
+        document.addEventListener('DOMContentLoaded', init);
+
+        // Fonctions pour le mockup du système
+        function createMockTicket(ticketId) {
+            // Générer des données simulées pour le billet
+            const now = new Date();
+            const mockCategories = ["earlyBird", "secondRelease", "thirdRelease"];
+            const mockNames = ["Dupont", "Martin", "Bernard", "Petit", "Dubois", "Moreau", "Laurent", "Simon", "Michel", "Lefebvre"];
+            const mockFirstNames = ["Jean", "Marie", "Pierre", "Sophie", "Paul", "Thomas", "Antoine", "Émilie", "Amélie", "Nicolas"];
+            
+            // Utiliser l'ID pour générer des valeurs déterministes
+            const hash = ticketId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            
+            return {
+                paymentId: ticketId,
+                name: mockNames[hash % mockNames.length],
+                firstName: mockFirstNames[(hash + 3) % mockFirstNames.length],
+                email: `${ticketId.substring(3, 8).toLowerCase()}@example.com`,
+                category: mockCategories[hash % 3],
+                createdAt: new Date(now.getTime() - (hash % 30) * 24 * 60 * 60 * 1000).toISOString(),
+                scanDate: now.toISOString()
+            };
+        }
+    </script>
+
+    <!-- Fonctionnalités additionnelles -->
+    <footer class="container mx-auto p-4 text-center text-sm text-gray-500 mt-8">
+        <p>Scanner QR Code Tropitech - Version 1.0.0</p>
+        <button id="exportJsonBtn" class="text-blue-400 hover:underline text-xs mt-2">Exporter données (JSON)</button>
+        <div class="mt-2">
+            <label class="text-xs cursor-pointer hover:text-blue-400">
+                <span>Importer données</span>
+                <input type="file" id="importJsonFile" accept=".json" class="hidden">
+            </label>
+        </div>
+    </footer>
+
+    <script>
+        // Initialiser les fonctions additionnelles
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('exportJsonBtn').addEventListener('click', exportDataToJSON);
+            document.getElementById('importJsonFile').addEventListener('change', handleFileImport);
+        });
+    </script>
+</body>
+</html>
