@@ -91,19 +91,34 @@
                 });
         }
 
+        function extractTicketId(decodedText) {
+            try {
+                const url = new URL(decodedText);
+                const paramValue = url.pathname.includes("pi=")
+                    ? url.pathname.split("pi=")[1]
+                    : url.searchParams.get("pi") || url.pathname.split("/").pop();
+                return paramValue;
+            } catch {
+                return decodedText; // fallback si ce n'est pas une URL
+            }
+        }
+
         function onScanSuccess(decodedText) {
             logDebug("QR détecté: " + decodedText);
-            if (scannedTickets[decodedText]) {
-                showResult(false, "DÉJÀ SCANNÉ", "Ce billet a déjà été scanné", scannedTickets[decodedText]);
+            const ticketId = extractTicketId(decodedText);
+            logDebug("ID extrait: " + ticketId);
+
+            if (scannedTickets[ticketId]) {
+                showResult(false, "DÉJÀ SCANNÉ", "Ce billet a déjà été scanné", scannedTickets[ticketId]);
                 return;
             }
 
-            const ticket = knownTickets[decodedText];
+            const ticket = knownTickets[ticketId];
             if (ticket) {
-                scannedTickets[decodedText] = ticket;
+                scannedTickets[ticketId] = ticket;
                 showResult(true, "VALIDE", "Billet valide", ticket);
             } else {
-                showResult(false, "INVALIDE", "Ce billet n'est pas reconnu", { id: decodedText });
+                showResult(false, "INVALIDE", "Ce billet n'est pas reconnu", { id: ticketId });
             }
         }
 
