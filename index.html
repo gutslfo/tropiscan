@@ -22,9 +22,6 @@
         .invalid-badge {
             background-color: rgba(239, 68, 68, 0.7);
         }
-        .warning-badge {
-            background-color: rgba(245, 158, 11, 0.7);
-        }
         #raw-data {
             background-color: #1a1a1a;
             border: 1px solid #333;
@@ -35,36 +32,15 @@
             font-size: 12px;
             word-break: break-all;
         }
-        .scanner-controls {
-            display: flex;
-            gap: 8px;
-            margin-top: 10px;
-            justify-content: center;
-        }
-        .btn {
-            padding: 8px 16px;
-            border-radius: 4px;
-            background-color: #4a0072;
-            color: white;
-            font-weight: 500;
-        }
-        .btn:hover {
-            background-color: #6a0092;
-        }
     </style>
 </head>
 <body class="min-h-screen p-4">
     <div class="container mx-auto max-w-md">
         <h1 class="text-2xl font-bold text-center mb-6">Scanner Tropitech</h1>
-        
+
         <div class="bg-gray-900 rounded-lg p-4 mb-6">
             <div id="qr-reader"></div>
             <p class="text-center text-sm text-gray-400 mt-4">Placez le QR code dans le cadre</p>
-            
-            <div class="scanner-controls">
-                <button id="toggle-camera" class="btn">Changer de caméra</button>
-                <button id="toggle-debug" class="btn">Debug</button>
-            </div>
         </div>
 
         <div id="result" class="bg-gray-900 rounded-lg p-4 mb-6 hidden">
@@ -73,233 +49,79 @@
             <div id="ticket-details"></div>
             <div id="raw-data" class="hidden"></div>
         </div>
-        
-        <div id="history" class="bg-gray-900 rounded-lg p-4">
-            <h2 class="text-xl font-bold mb-2">Historique des scans</h2>
-            <div id="history-list" class="space-y-2">
-                <p class="text-gray-400 text-center">Aucun scan effectué</p>
-            </div>
-        </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Éléments DOM
-            const resultElement = document.getElementById('result');
-            const scanStatusElement = document.getElementById('scan-status');
-            const ticketDetailsElement = document.getElementById('ticket-details');
-            const rawDataElement = document.getElementById('raw-data');
-            const historyListElement = document.getElementById('history-list');
-            const toggleCameraButton = document.getElementById('toggle-camera');
-            const toggleDebugButton = document.getElementById('toggle-debug');
-            
-            // État du scanner
-            const scannedTickets = {};
-            let currentCamera = 'environment'; // 'user' pour caméra avant
-            let debugMode = false;
-            
-            // Configuration du scanner
-            const html5QrCode = new Html5Qrcode("qr-reader");
-            const qrConfig = {
-                fps: 10,
-                qrbox: 250
-            };
-            
-            // Démarrer le scanner
-            startScanner();
-            
-            // Fonctions du scanner
-            function startScanner() {
-                html5QrCode.start(
-                    { facingMode: currentCamera },
-                    qrConfig,
-                    onQrCodeSuccess,
-                    onQrCodeError
-                ).catch(err => {
-                    alert("Erreur d'accès à la caméra: " + err);
-                    console.error("Erreur d'accès à la caméra:", err);
-                });
+        const knownTickets = {
+            'pi_1NxYtQCYswbprtC1rbVKorhT': {
+                name: 'Dupont',
+                firstName: 'Jean',
+                email: 'jean.dupont@example.com',
+                category: 'Early Bird'
+            },
+            'pi_1NxYuRCYswbprtC1aV9XpL8U': {
+                name: 'Martin',
+                firstName: 'Sophie',
+                email: 'sophie.martin@example.com',
+                category: 'Second Release'
+            },
+            'pi_1NxYvSCYswbprtC1bTtRmPqV': {
+                name: 'Bernard',
+                firstName: 'Marie',
+                email: 'marie.bernard@example.com',
+                category: 'Third Release'
             }
-            
-            // Changer de caméra
-            toggleCameraButton.addEventListener('click', function() {
-                html5QrCode.stop().then(() => {
-                    currentCamera = currentCamera === 'environment' ? 'user' : 'environment';
-                    startScanner();
-                }).catch(err => {
-                    console.error("Erreur lors du changement de caméra:", err);
-                });
-            });
-            
-            // Activer/désactiver le mode debug
-            toggleDebugButton.addEventListener('click', function() {
-                debugMode = !debugMode;
-                if (debugMode) {
-                    rawDataElement.classList.remove('hidden');
-                } else {
-                    rawDataElement.classList.add('hidden');
-                }
-            });
-            
-            // Fonction appelée quand un QR code est détecté
-            function onQrCodeSuccess(decodedText) {
-                console.log("QR Code détecté:", decodedText);
-                processQrCode(decodedText);
+        };
+
+        const scannedTickets = {};
+
+        const html5QrCode = new Html5Qrcode("qr-reader");
+        const config = { fps: 10, qrbox: 250 };
+
+        function startScanner() {
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, () => {})
+                .catch(err => alert("Erreur caméra: " + err));
+        }
+
+        function onScanSuccess(decodedText) {
+            if (scannedTickets[decodedText]) {
+                showResult(false, "DÉJÀ SCANNÉ", "Ce billet a déjà été scanné", scannedTickets[decodedText]);
+                return;
             }
-            
-            function onQrCodeError(err) {
-                // Ignorer les erreurs normales de scan
+
+            const ticket = knownTickets[decodedText];
+            if (ticket) {
+                scannedTickets[decodedText] = ticket;
+                showResult(true, "VALIDE", "Billet valide", ticket);
+            } else {
+                showResult(false, "INVALIDE", "Ce billet n'est pas reconnu", { id: decodedText });
             }
-            
-            // Traiter le contenu du QR code
-            function processQrCode(qrData) {
-                // Afficher les données brutes en mode debug
-                if (debugMode) {
-                    rawDataElement.textContent = qrData;
-                    rawDataElement.classList.remove('hidden');
-                } else {
-                    rawDataElement.classList.add('hidden');
-                }
-                
-                // Extraire l'ID du billet
-                let ticketId = qrData;
-                let isUrlFormat = false;
-                
-                // Format spécifique Tropitech: https://tropitech.ch/ticket/[paymentId]
-                if (qrData.includes('/ticket/')) {
-                    isUrlFormat = true;
-                    const parts = qrData.split('/ticket/');
-                    if (parts.length > 1) {
-                        ticketId = parts[1];
-                    }
-                }
-                
-                // Vérifier si déjà scanné
-                if (scannedTickets[ticketId]) {
-                    showResult(false, "DÉJÀ SCANNÉ", "Ce billet a déjà été scanné", scannedTickets[ticketId]);
-                    addToHistory(ticketId, false, "DÉJÀ SCANNÉ");
-                    return;
-                }
-                
-                // Vérifier format valide - accepte les ID Stripe (pi_...) ou tout ID alphanumérique d'au moins 8 caractères
-                const isValidFormat = ticketId.startsWith('pi_') || ticketId.match(/^[a-zA-Z0-9_-]{8,}$/);
-                
-                if (isValidFormat) {
-                    // Simuler un billet valide
-                    const mockTicket = {
-                        id: ticketId,
-                        name: generateRandomName(),
-                        firstName: generateRandomFirstName(),
-                        email: `${ticketId.substring(0, 5).toLowerCase()}@example.com`,
-                        category: generateRandomCategory(),
-                        date: new Date().toLocaleString()
-                    };
-                    
-                    // Enregistrer comme scanné
-                    scannedTickets[ticketId] = mockTicket;
-                    
-                    showResult(true, "VALIDE", isUrlFormat ? "Billet Tropitech valide" : "Billet accepté", mockTicket);
-                    addToHistory(ticketId, true, "VALIDE");
-                } else {
-                    showResult(false, "INVALIDE", "Format de billet non reconnu", null);
-                    addToHistory(ticketId, false, "INVALIDE");
-                }
+        }
+
+        function showResult(isValid, status, message, ticket) {
+            const resultEl = document.getElementById('result');
+            const statusEl = document.getElementById('scan-status');
+            const detailsEl = document.getElementById('ticket-details');
+            const rawEl = document.getElementById('raw-data');
+
+            resultEl.classList.remove('hidden');
+            statusEl.className = (isValid ? 'valid-badge' : 'invalid-badge') + ' p-3 rounded-lg text-center mb-4';
+            statusEl.innerHTML = `<div class="font-bold text-lg">${status}</div><p>${message}</p>`;
+
+            if (ticket.name) {
+                detailsEl.innerHTML = `
+                    <div class="p-3 bg-gray-800 rounded-lg">
+                        <div><span class="text-gray-400">Nom:</span> ${ticket.firstName} ${ticket.name}</div>
+                        <div><span class="text-gray-400">Email:</span> ${ticket.email}</div>
+                        <div><span class="text-gray-400">Catégorie:</span> ${ticket.category}</div>
+                        <div><span class="text-gray-400">ID:</span> ${ticket.id || ''}</div>
+                    </div>`;
+            } else {
+                detailsEl.innerHTML = `<div class="p-3 bg-gray-800 rounded-lg"><div><span class="text-gray-400">ID:</span> ${ticket.id}</div></div>`;
             }
-            
-            // Afficher le résultat du scan
-            function showResult(isValid, status, message, ticket) {
-                resultElement.classList.remove('hidden');
-                
-                scanStatusElement.innerHTML = '';
-                scanStatusElement.className = isValid ? 'valid-badge p-3 rounded-lg text-center mb-4' : 'invalid-badge p-3 rounded-lg text-center mb-4';
-                
-                scanStatusElement.innerHTML = `
-                    <div class="font-bold text-lg">${status}</div>
-                    <p>${message}</p>
-                `;
-                
-                ticketDetailsElement.innerHTML = '';
-                if (ticket) {
-                    ticketDetailsElement.innerHTML = `
-                        <div class="p-3 bg-gray-800 rounded-lg">
-                            <div class="mb-2">
-                                <span class="text-gray-400">Nom:</span>
-                                <span class="font-bold">${ticket.firstName} ${ticket.name}</span>
-                            </div>
-                            <div class="mb-2">
-                                <span class="text-gray-400">Email:</span>
-                                <span>${ticket.email}</span>
-                            </div>
-                            <div class="mb-2">
-                                <span class="text-gray-400">Catégorie:</span>
-                                <span>${ticket.category}</span>
-                            </div>
-                            <div class="mb-1">
-                                <span class="text-gray-400">ID:</span>
-                                <span class="text-xs">${ticket.id}</span>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                // Jouer un son
-                playSound(isValid);
-            }
-            
-            // Ajouter à l'historique
-            function addToHistory(ticketId, isValid, status) {
-                // Supprimer le message par défaut
-                if (historyListElement.textContent.includes('Aucun scan effectué')) {
-                    historyListElement.innerHTML = '';
-                }
-                
-                // Limiter l'ID à afficher
-                const shortId = ticketId.length > 10 ? ticketId.substring(0, 10) + '...' : ticketId;
-                
-                // Créer l'élément d'historique
-                const historyItem = document.createElement('div');
-                historyItem.className = 'p-2 bg-gray-800 rounded flex justify-between items-center';
-                
-                const statusClass = isValid ? 'valid-badge' : 'invalid-badge';
-                
-                historyItem.innerHTML = `
-                    <span class="text-sm">${new Date().toLocaleTimeString()}</span>
-                    <span class="text-xs">${shortId}</span>
-                    <span class="${statusClass} px-2 py-1 text-xs rounded">${status}</span>
-                `;
-                
-                // Ajouter au début de la liste
-                historyListElement.insertBefore(historyItem, historyListElement.firstChild);
-            }
-            
-            // Jouer un son selon le résultat
-            function playSound(isValid) {
-                try {
-                    const audio = new Audio(isValid ? 
-                        'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAABPAAMzMzMzMzMzMzMzMzMzMzMzMzMzOZmZmZmZmZmZmZmZmZmZmZmZmZmZnMzMzMzMzMzMzMzMzMzMzMzMzMzMz///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYkAAAAAAAA8MCFkc6QAAAAAAAAAAAAAAAAAAAAAP/jeMAAAAAAAAAAAABNYXRyb3NrYQAAAFhJbmZvAAAADwAAAAMAAAk7ADMzMzMzMzMzMzMzMzMzMzMzMzMzmZmZmZmZmZmZmZmZmZmZmZmZmZmZzMzMzMzMzMzMzMzMzMzMzMzMzMzM////////////////////////////////////////////AAAAAExhdmM1OC4xMwAAAAAAAAAAAAAkBgoAAAAAAAAJO7GILUkAAAAAAAAAAAAAAAAAQgD/+9DEAAAGkAN/tBAAL5QQreZ2gAUAJAG1a3XO3773S7WO1rGkMYcbvGCKnTsYQfvh/CAIAgCYg+D4fD8MCDweBAEJDjg8UGJZUuuEBDiw5UcJlEAhI8QDHlwxw+GJYbD4OCHHi6WAwQZHnAgkeDBiOFx/+Z7o5Id85UuSzx8fIJGlpYuNlf7///5QfKD8PKD5sMsDweBAEwfD4fh+GAQBAEgQBAEg+H4QPh5QBAEAQBAEAQAsAAAmYQGACBSIUH////////v//+gIBkCQ2IGQ2ICIMgIC//sCYMIYPhgTB8PmxPh+GD7//4Pm/8Hw/Dw/D62GBANyAoDgQcCAIAgCHgQBBgCHgQBM+oEAQ+D4fhgQBAEPgg+D4fmA+GBAEP/CAIOA+D1sQBoIABQAeAIKgcD4YwPiGAOAZh//tUxBTGJABJAAAAAOAJAAAAAgAAA' : 
-                        'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//uQxAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAADAAAGhgBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVWqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqr///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAGhqNHmHMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAALiDABAALiDAAQBAICA+H/DggCDAPh8Jg+GAIHBB///CEPwff8Hw+H4IAgCAIB8HwfD4fD4Pg+CAIAgCAIAgCAIBsN4fBAEHwfD4IAgCYPg+D4f/gQBAEAQDYEAQf/4Pg+H+oEA+H//D4f//CAIAgCAb//4QBANgQBA//4fBAEAQBAEA2G8Pg+CAIOCAIAgG///8Hx8Hwf//D4fD8EAQBAEAQBAEAQDYbw+CAIPg+HwQBAEwfB8Hw//AgCAIAgGwIAg//wfB8P9QIB8P/+Hw///CAIAgCAb//4QBANgQBA//4fBAEAQBAEA2G8Pg+CAIOCAIAgG///+2TEFMYkAEkAAAAAOAJAAAAAgAAA');
-                    audio.play();
-                } catch(e) {
-                    console.log("Son non supporté:", e);
-                }
-            }
-            
-            // Générateurs de données aléatoires pour les tickets de démo
-            function generateRandomName() {
-                const names = ["Dupont", "Martin", "Bernard", "Petit", "Dubois", "Moreau", "Laurent", "Simon", "Michel", "Lefebvre"];
-                return names[Math.floor(Math.random() * names.length)];
-            }
-            
-            function generateRandomFirstName() {
-                const firstNames = ["Jean", "Marie", "Pierre", "Sophie", "Paul", "Thomas", "Antoine", "Émilie", "Amélie", "Nicolas"];
-                return firstNames[Math.floor(Math.random() * firstNames.length)];
-            }
-            
-            function generateRandomCategory() {
-                const categories = ["Early Bird", "Second Release", "Third Release"];
-                return categories[Math.floor(Math.random() * categories.length)];
-            }
-        });
+        }
+
+        document.addEventListener("DOMContentLoaded", startScanner);
     </script>
 </body>
 </html>
