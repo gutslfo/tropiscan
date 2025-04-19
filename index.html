@@ -45,13 +45,7 @@
 <body class="flex flex-col items-center justify-center h-full w-full overflow-hidden p-2">
   <h1 class="text-2xl font-bold mb-4 text-center">Scanner Tropitech</h1>
 
-  <div id="audioInit" class="flex flex-col items-center justify-center">
-    <button onclick="initAudio()" class="px-6 py-3 mb-6 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg">
-      Activer le son
-    </button>
-  </div>
-
-  <div id="scannerUI" class="hidden w-full flex flex-col items-center">
+  <div class="w-full flex flex-col items-center">
     <div id="qr-reader" class="w-full max-w-xs"></div>
     <div class="scanner-box" id="scannerBox">SCAN...</div>
 
@@ -67,31 +61,13 @@
 
   <script>
     const html5QrCode = new Html5Qrcode("qr-reader");
-    const scannerUI = document.getElementById("scannerUI");
-    const audioInit = document.getElementById("audioInit");
 
-    function initAudio() {
-      const sound = document.getElementById("bipSound");
-      sound.play().then(() => {
-        sound.pause();
-        sound.currentTime = 0;
-        audioInit.classList.add("hidden");
-        scannerUI.classList.remove("hidden");
-        startCamera();
-      }).catch(err => {
-        alert("Veuillez autoriser le son pour activer le scanner.");
-        console.error(err);
-      });
-    }
-
-    function startCamera() {
-      html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 200 },
-        () => {},
-        () => {}
-      ).catch(err => console.error("Erreur caméra:", err));
-    }
+    html5QrCode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 200 },
+      () => {},
+      () => {}
+    ).catch(err => console.error("Erreur caméra:", err));
 
     function fakeScan() {
       const scanner = document.getElementById('scannerBox');
