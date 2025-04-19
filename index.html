@@ -52,8 +52,9 @@
     Scanner
   </button>
 
-  <audio id="bipSound">
+  <audio id="bipSound" preload="auto">
     <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" type="audio/ogg">
+    <source src="https://actions.google.com/sounds/v1/alarms/beep_short.mp3" type="audio/mpeg">
   </audio>
 
   <script>
@@ -70,7 +71,11 @@
       const sound = document.getElementById('bipSound');
 
       scanner.classList.add('fake-bip');
-      sound.play();
+      sound.pause();
+      sound.currentTime = 0;
+      sound.play().catch(() => {
+        console.warn("Lecture audio bloquée par le navigateur");
+      });
 
       setTimeout(() => {
         scanner.classList.remove('fake-bip');
